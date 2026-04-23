@@ -1,0 +1,18 @@
+# Claude Code local/user overrides
+.claude/settings.local.json
+
+# Codex CLI session state
+.codex/auth.json
+.codex/history.jsonl
+.codex/sessions/
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Environment
+.env
+.env.*
+!.env.example

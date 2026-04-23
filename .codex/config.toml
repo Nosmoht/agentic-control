@@ -1,0 +1,33 @@
+# Codex CLI — Project-level configuration
+# Scope: spec work on this documentation repo.
+# No source code yet; Codex is used for doc edits and review.
+
+[profiles.spec-work]
+# Sandbox level: the repo is pure Markdown, workspace-write is safe
+sandbox = "workspace-write"
+# Approvals: ask for each destructive or non-standard action
+approval = "on-request"
+# Never touch these paths even in workspace-write
+protected_paths = [
+  ".git",
+  ".codex",
+  ".claude",
+  ".mcp.json",
+  "archive",
+]
+
+[profiles.spec-review]
+# Read-only profile for consistency checks
+sandbox = "read-only"
+approval = "never"
+
+# Default profile when no -p given
+default_profile = "spec-work"
+
+# Logging
+[logging]
+level = "info"
+
+# Output schema discipline — every exec call should set --output-schema
+[exec]
+require_output_schema = true

@@ -1,0 +1,27 @@
+# Routing Pins
+#
+# Manuelle Task-zu-Adapter/Modell-Zuordnungen. Pins überschreiben die
+# Cost-Aware-Routing-Policy (siehe ADR-0014). Leer zu Projektbeginn.
+#
+# Syntax:
+#   - match: <Bedingung am Work Item>
+#     adapter: <claude-code | codex-cli>
+#     model: <id aus model-inventory.yaml>
+#     reason: <freier Text, Audit-fähig>
+#
+# Match-Bedingungen (vorläufig, Details in F0003):
+#   work_item_type: <string>
+#   project_id: <string>
+#   tags_any_of: [<string>, ...]
+#   estimated_tokens_gt: <int>
+#
+# Beispiel (inaktiv, nur Illustration):
+#   - match:
+#       work_item_type: long_coding_refactor
+#     adapter: claude-code
+#     model: claude-opus-4-7
+#     reason: "Coding-Delta 7,6pp in SWE-bench rechtfertigt Opus bei grossem Refactor."
+
+version: 1
+updated: 2026-04-24
+pins: []

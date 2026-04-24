@@ -33,6 +33,12 @@ Projekt/Tag, Global/Tag). Siehe ADR-0008.
 Interaktionskanal — CLI-first, optional Messenger/Mail. Nie direkt
 ausführend.
 
+## Cost-Aware Routing
+Dispatch-Policy, bei der der Dispatcher pro Work Item Adapter und Modell
+anhand einer Konfidenzschätzung × Kosten-Tier wählt, nicht anhand Task-Class-
+Zuordnung. Basis: RouteLLM-Stil (85 % Kostenersparnis bei 95 %
+Qualitätserhalt). Siehe ADR-0014, SPECIFICATION.md §8.6.
+
 ## DBOS
 In-Process-Library für Durable Execution; Schritte checkpoints in der
 gleichen Transaktion wie Domänen-Writes. Siehe ADR-0002.
@@ -40,6 +46,22 @@ gleichen Transaktion wie Domänen-Writes. Siehe ADR-0002.
 ## Decision
 Dokumentierte Wahl im ADR-Minimalformat (Kontext, Entscheidung, Konsequenz).
 Kennzahl im Knowledge-Modul.
+
+## Dispatcher
+Sub-Komponente des Work-Moduls, die pro Work Item Adapter und Modell wählt
+und das Ergebnis als `DispatchDecision` persistiert. Policy, nicht
+Execution. Abgrenzung: „Agent-Auswahl" (§8.6) ist das Konzept, „Dispatcher"
+ist die konkrete Komponente. Siehe ADR-0014.
+
+## DispatchDecision
+Runtime Record (ADR-0011), frozen pro `RunAttempt`. Enthält Adapter,
+Modell, Begründung (Pin vs. Default vs. Cost-Aware) und Evidence-Refs.
+
+## ExecutionAdapter
+Interface mit fünf Verben (`supports`, `prepare`, `execute`, `cancel`,
+`describe`), über das der Orchestrator beide Agent-Tools (Claude Code,
+Codex CLI) uniform ansteuert. Implementierungen sind gleichwertige Peers.
+Siehe ADR-0014, SPECIFICATION.md §5.4.
 
 ## Dependency
 Strukturelle Abhängigkeit zwischen Projekten, Work Items oder Artifacts.
@@ -53,9 +75,29 @@ werden kann.
 ## Evidence
 Beleg- und Herkunftsinformation für Observations, Decisions, Standards oder
 Artifacts. Kein `trust_class`-Attribut (Kategorienfehler in Legacy).
+Subtyp `Evidence(kind=benchmark)` (siehe **Benchmark Evidence**).
+
+## Benchmark Evidence
+`Evidence(kind=benchmark)` — extern gepullte Benchmark-Daten (HuggingFace
+Open LLM Leaderboard, SWE-bench, LiveBench, Aider, Arena), normalisiert
+und mit Referenz auf den Roh-`Artifact(kind=benchmark_raw)`. Dient der
+Awareness („welches Modell führt wo") — **beeinflusst keine
+Dispatch-Entscheidung automatisch**. Siehe SPECIFICATION.md §5.5, §8.6,
+Feature F0004.
+
+## Benchmark Puller
+Code-Komponente (in v1 manuell via `agentctl benchmarks pull`, ab v1.x
+optional als DBOS-Scheduled-Workflow), die konfigurierte Benchmark-Quellen
+abfragt und `Benchmark Evidence` erzeugt.
 
 ## Execution
 Modul, das bounded Agent-Runs ausführt. Sandboxed, stateless, ephemer.
+
+## HarnessProfile
+Neutraler Profil-Typ, den der Dispatcher für einen geplanten Run erzeugt und
+an den `ExecutionAdapter` übergibt. Enthält Modell-Ref, Tool-Allowlist,
+Sandbox-Vertrag, Context-Budget, Approval-Mode, Output-Schema, Secrets-
+Scope. Siehe ADR-0014.
 
 ## HITL (Human in the Loop)
 Punkte, an denen das System menschliche Freigabe einholt. Per Inbox-Kaskade
@@ -72,6 +114,12 @@ Organisierte Wissensbasis, periodischer Review alle 2–4 Wochen.
 ## Litestream
 Continuous-Replication-Tool für SQLite → S3-kompatibles Object Storage.
 Liefert Point-in-Time-Recovery. Siehe ADR-0003.
+
+## Model Inventory
+Statische YAML-Konfiguration (`config/dispatch/model-inventory.yaml`) mit
+allen bekannten Adapter × Modell × Preis × Context × Capability-Flags-
+Kombinationen. Vom Dispatcher gelesen, nicht Runtime-veränderlich.
+Pflege: monatlich manuell.
 
 ## MADR
 Markdown Architecture Decision Record. Format für Entscheidungen in
@@ -92,6 +140,12 @@ Capture-Primitive.
 Modul für Projekte, Dependencies, Binding-Scope. Policy als Querschnitt
 (nicht eigenes Modul).
 
+## Pinned Mode
+Betriebsmodus des Dispatchers, in dem `routing-pins.yaml` als Lookup dient
+und bei fehlender Pin der globale Default aus `model-inventory.yaml`
+gewählt wird. V1-Default. Wechselt zu **Cost-Aware Mode**, sobald 5+ Pins
+gepflegt oder 4 Wochen Nutzung vergangen sind. Siehe ADR-0014.
+
 ## Progressive Disclosure
 Muster, bei dem nicht die ganze Spec auf einmal geladen wird, sondern per
 Skill (`spec-navigator`) gezielt Abschnitte.
@@ -108,9 +162,21 @@ Frameworks zusammen, ist kein Orchestrator. Siehe ADR-0004.
 Evidenz-Dokument in `docs/research/NN-*.md` mit wissenschaftlich zitierten
 Quellen (Tier 1/2/3).
 
+## Routing Pin
+Eintrag in `config/dispatch/routing-pins.yaml`, der einen bestimmten
+Match-Ausdruck (z. B. `work_item_type: long_coding_refactor`) fest auf
+Adapter + Modell bindet. Überschreibt Cost-Aware-Routing-Entscheidungen.
+Siehe ADR-0014, Feature F0003.
+
 ## Run
 Konkrete Ausführung eines Work Items in Execution. Umbenannt von Legacy
 `Workflow`. Stateless aus Orchestrator-Sicht.
+
+## RunAttempt
+Runtime Record (ADR-0011) für einen konkreten Versuch einer Run. Enthält
+Startzeit, Endzeit, Agent, Modell, Sandbox-Profil, Prompt-Hash, Tool-
+Allowlist, Exit-Code, Kosten, Logs-Referenz. Mehrere `RunAttempt` pro
+`Run` möglich (Retries). Idempotency-Keys für externe Effekte.
 
 ## Sandbox
 Siehe MVS.

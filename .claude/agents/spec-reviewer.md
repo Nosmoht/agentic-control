@@ -24,6 +24,9 @@ Prüfe auf Anforderung folgende Invarianten:
 5. Keine normative Spec-Aussage referenziert Dokumente aus `archive/`.
 6. `CHANGELOG.md` enthält für jede Spec-Version einen Eintrag.
 7. `AGENTS.md` und `CLAUDE.md` sind identisch (Symlink intakt).
+8. Alle `adr_refs` und `spec_refs` in Frontmatter von
+   `docs/features/FNNNN-*.md` resolven: ADR-Datei existiert bzw.
+   Spec-Sektion existiert in `SPECIFICATION.md`.
 
 ## Ausgabeformat
 

@@ -1,0 +1,111 @@
+# Model Inventory
+#
+# Statische Liste aller bekannten Adapter-/Modell-Kombinationen. Wird von
+# der Cost-Aware-Routing-Policy (siehe ADR-0014) als Kandidatenmenge
+# gelesen.
+#
+# Pflegeintervall: monatlich oder bei bekanntem Preis-/Modell-Update.
+# Preis-Quelle: docs/research/13-cost.md (Stand 2026-04).
+# Kontext-Längen: offizielle Vendor-Docs, einmalig manuell eingetragen.
+#
+# Flags:
+#   tier       = premium | standard | cheap
+#   strength   = freie Liste, wofür das Modell laut Benchmarks steht
+#   adapter    = welcher ExecutionAdapter es aufrufen kann
+#
+# Hinweis: 'strength' ist NICHT Dispatch-Eingabe — nur dokumentarisch.
+# Der Router entscheidet nach Konfidenz × Kosten, nicht nach Task-Tag.
+
+version: 1
+updated: 2026-04-24
+
+models:
+  - id: claude-opus-4-7
+    provider: anthropic
+    adapter: claude-code
+    tier: premium
+    input_usd_per_mtok: 15.00
+    output_usd_per_mtok: 75.00
+    context_tokens: 200000
+    strength:
+      - complex_coding
+      - long_horizon_reasoning
+    notes: "Coding-Leader in SWE-bench Verified (87,6%, April 2026)."
+
+  - id: claude-sonnet-4-6
+    provider: anthropic
+    adapter: claude-code
+    tier: standard
+    input_usd_per_mtok: 3.00
+    output_usd_per_mtok: 15.00
+    context_tokens: 200000
+    strength:
+      - default_workhorse
+      - coding
+    notes: "Standard-Default für Claude-Code-Aufrufe."
+
+  - id: claude-haiku-4-5
+    provider: anthropic
+    adapter: claude-code
+    tier: cheap
+    input_usd_per_mtok: 0.25
+    output_usd_per_mtok: 1.25
+    context_tokens: 200000
+    strength:
+      - classification
+      - routing_confidence_calls
+      - summarization
+    notes: "Für Intake-Triage und Confidence-Schätzung in der Routing-Policy."
+
+  - id: gpt-5-4
+    provider: openai
+    adapter: codex-cli
+    tier: premium
+    input_usd_per_mtok: 10.00
+    output_usd_per_mtok: 40.00
+    context_tokens: 400000
+    strength:
+      - reasoning
+      - tool_orchestration
+      - structured_output
+    notes: "Premium-Gegenpart zu Opus 4.7. Intelligence Index April 2026 = 57 (tied)."
+
+  - id: gpt-5-mini
+    provider: openai
+    adapter: codex-cli
+    tier: standard
+    input_usd_per_mtok: 2.00
+    output_usd_per_mtok: 8.00
+    context_tokens: 400000
+    strength:
+      - default_workhorse
+      - long_context
+    notes: "Standard-Default für Codex-CLI-Aufrufe."
+
+  - id: gemini-3-1-pro
+    provider: google
+    adapter: null
+    tier: premium
+    input_usd_per_mtok: 7.00
+    output_usd_per_mtok: 21.00
+    context_tokens: 1000000
+    strength:
+      - very_long_context
+      - research_synthesis
+    notes: "Kein unterstützter Adapter in V1 (weder Claude Code noch Codex CLI). Dokumentiert für Benchmark-Awareness; Kandidat für künftigen dritten Adapter."
+
+# Regeln
+rules:
+  # Dispatch wählt nur Modelle mit adapter != null.
+  # Modelle mit adapter: null sind für Benchmark-Awareness geführt.
+  dispatchable_adapters:
+    - claude-code
+    - codex-cli
+
+  # Default-Modell pro Adapter, wenn kein Pin greift.
+  defaults:
+    claude-code: claude-sonnet-4-6
+    codex-cli: gpt-5-mini
+
+  # Confidence-Modell: darf bei jeder Routing-Entscheidung aufgerufen werden.
+  confidence_probe_model: claude-haiku-4-5

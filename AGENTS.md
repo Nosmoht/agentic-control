@@ -106,6 +106,25 @@ der gezielt Sektionen der Spec oder ADRs zieht, statt alles zu laden.
 - Framework-Vergleich (Temporal/Restate/DBOS) → `docs/research/03-durable-execution.md`
 - Sandbox-Details & CVEs → `docs/research/07-trust-sandboxing.md`
 
+## Feature-Disziplin
+
+Jedes lieferbare Feature bekommt eine eigene Markdown-Datei unter
+`docs/features/FNNNN-kebab-name.md`. Siehe `docs/features/README.md` für
+Format, Lifecycle und Cheat-Sheet.
+
+Wichtig:
+
+- **Features enthalten keine Decision-Abschnitte.** Warum-Entscheidungen
+  gehören in einen ADR. Was-das-System-ist gehört in die Spec.
+- **Lifecycle**: `proposed → in_progress → done`. Nur der Nutzer setzt
+  `done` per Commit.
+- **Keine Autogeneration.** Der Feature-Index in `docs/features/README.md`
+  und `docs/plans/project-plan.md` wird manuell gepflegt.
+
+Wenn du als Agent ein Feature anlegst: Status `proposed`, 6 Pflicht-
+Frontmatter-Felder, Body in fester Reihenfolge (Context, Scope, Out of
+Scope, Acceptance Criteria, Test Plan, Rollback).
+
 ## Bekannte Lücken
 
 Siehe `docs/spec/SPECIFICATION.md §11.3` (Offene Entscheidungen) und

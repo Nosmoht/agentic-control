@@ -6,6 +6,56 @@ Versionen folgen [Semantic Versioning](https://semver.org/) für Specs
 (Major = Breaking Change im Datenmodell oder in Modul-Grenzen,
 Minor = additiv, Patch = Klarstellungen/Fixes).
 
+## [0.2.1-draft] — 2026-04-24
+
+Patch-Release nach Follow-up-Review durch Codex
+(`docs/reviews/2026-04-24-followup-review.md`). Behebt konkrete
+Normkonsistenz-Lücken, die der V0.2.0-Patch zurückgelassen hat.
+Keine neuen Entscheidungen, keine Scope-Änderung.
+
+### Fixed
+
+- **ADR-0007** Status-Line trägt jetzt die Präzisierung durch ADR-0012
+  explizit; 72-h-Auto-Abandon durchgestrichen; „Kumulativ" → „disjunktiv
+  (OR)" mit Verweis auf ADR-0012. Referenz-Liste um ADR-0012 ergänzt.
+- **ADR-0008** Task-Row-Semantik von `$2 AND 25 Turns AND 15 min` zu
+  `$2 OR 25 Turns OR 15 min` korrigiert (war in V0.2.0-draft nur in
+  Spec §8.3 gefixt, ADR widersprach). Status-Line trägt die Korrektur.
+- **ADR-0011** Runtime-Record-Tabelle um `DispatchDecision`-Zeile
+  erweitert (war in V0.2.0 nur in Spec §5.7 und im Beziehungsblock
+  gelistet).
+- **SPECIFICATION.md §5.7** Work-Item-Lifecycle trägt die HITL-Sub-
+  States (`waiting_for_approval`, `stale_waiting`, `timed_out_rejected`)
+  als Unterscheidungen von `waiting/blocked`; Run-Lifecycle trägt den
+  Zwischenzustand `needs_reconciliation` (gefordert durch §10.4).
+- **SPECIFICATION.md §9** Status-Annotation bei ADR-0008 trägt den
+  V0.2.1-Fix.
+- **AGENTS.md** Stand-Line: V0.1.0-draft → V0.2.1-draft, Datum auf
+  2026-04-24.
+- **.claude/agents/spec-reviewer.md** Versionshinweis auf V0.2.1-draft;
+  „alle 7 Invarianten" → „alle 8 Invarianten" (Inkonsistenz mit dem
+  Invarianten-Block 13–29).
+- **F0001** Referenz „Runtime Records kommen erst mit v1a (F0004-ff.)"
+  korrigiert auf generische „v1a-Features" (F0004 ist Benchmark-
+  Awareness, nicht Runtime Records).
+- **docs/features/README.md** Stage-Enum um `v1a` und `v1b` erweitert;
+  Feature-Index trägt ADR-0003 bei F0001 nach, F0003/F0004 auf Stage
+  `v1a` gesetzt.
+- **F0003, F0004** Frontmatter-Stage auf `v1a`.
+- **docs/plans/project-plan.md** Feature-Index deckungsgleich mit
+  `features/README.md`: F0001 → ADR-0001 + ADR-0003, F0003/F0004 → v1a.
+- **docs/research/99-synthesis.md** Budget-Gate-Tabelle: AND → OR in der
+  Task-Row (gleiche Korrektur wie ADR-0008).
+- **README.md, .claude/skills/spec-navigator/SKILL.md** Stand-Referenzen
+  von V0.1.0-draft auf V0.2.1-draft gezogen.
+- **SPECIFICATION.md Frontmatter** `version: 0.2.0-draft → 0.2.1-draft`.
+- **GLOSSARY.md** Einträge für `HITL-Sub-States` und `Needs Reconciliation`
+  ergänzt, damit die neuen State-Machine-Zustände nicht nur in §5.7
+  stehen, sondern auch im Glossar.
+- **docs/research/99-synthesis.md** HITL-Abschnitt an ADR-0012 angeglichen
+  (disjunktive Kriterien, kein Default-Auto-Abandon) und „Eigenentscheidungen"-
+  Block entsprechend aktualisiert.
+
 ## [0.2.0-draft] — 2026-04-24
 
 ### Added

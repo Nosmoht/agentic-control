@@ -207,7 +207,7 @@ Entfernt: `Evidence.trust_class` (Kategorienfehler).[^B14]
 | Scope | Default Hard-Cap | Aktion |
 |---|---|---|
 | Request | max_tokens + Preis-Projektion < $0,50 | sofort `reject` |
-| Task (Work Item Run) | $2 AND 25 Turns AND 15 min Wall-Clock | `abort` Run |
+| Task (Work Item Run) | $2 **OR** 25 Turns **OR** 15 min Wall-Clock | `abort` Run |
 | Projekt/Tag | soft $5 / hard $15 | `pause` → HITL-Override |
 | Global/Tag | $25 hard | `suspend` System |
 
@@ -217,14 +217,18 @@ einfache Klassifikation liefert 20–25× Ersparnis.[^B13]
 
 ### HITL-Eskalation[^B09]
 
-- **Kriterien** (kumulativ): Irreversibilität × Blast-Radius, kalibrierte
-  Konfidenz (nicht rohe LLM-Confidence), Standardreaktionen (Clarify, Wait,
-  Retry, Replan, Reject) erschöpft.
+- **Kriterien** (disjunktiv, V0.2.0-Korrektur via ADR-0012):
+  Irreversibilität × Blast-Radius, kalibrierte Konfidenz (nicht rohe
+  LLM-Confidence), erschöpfte Standardreaktionen (Clarify, Wait, Retry,
+  Replan, Reject), Policy-Klasse verlangt Approval. Jede Bedingung allein
+  reicht. — Frühere Synthese-Formulierung „kumulativ" war irreführend.
 - **UX:** Inbox-Cards, asynchron. Push-Notifikation erst nach 4 h, Mail
   nach 24 h. Kein synchroner Push als Default.
-- **Timeout-Policy:** wenn 72 h keine Reaktion: Work Item automatisch
-  `abandoned`, Observation zur Reasoning-Kette abgelegt, Nutzer wird beim
-  nächsten `work next`-Aufruf informiert.
+- **Timeout-Policy (V0.2.0-Korrektur via ADR-0012):** **kein Default-Auto-
+  Abandon** mehr. Nach 24 h `stale_waiting`-Flag, nach 72 h zweite Mail.
+  `timed_out_rejected` nur bei harter Deadline (Auto-Reject, nie
+  Auto-Approve). `abandoned` explizit oder nach 30 Tagen Inaktivität bei
+  low-risk-markierten Items.
 - **AD-13 präzisiert:** „Eskalation als Ausnahme" gilt für *Häufigkeit*,
   nicht *Wichtigkeit*. Irreversible High-Risk-Aktionen eskalieren immer —
   sie müssen nur selten sein.
@@ -307,8 +311,9 @@ fünf zentralen Design-Entscheidungen:
   Literatur (Brief 14).
 - Die **konkreten $-Caps** (0,50 / 2 / 5 / 15 / 25) sind kalibrierbare
   Startwerte, keine empirischen Konstanten.[^B13]
-- Die **Timeout-Zahlen** (4 h Push, 24 h Mail, 72 h Abandon) sind
-  Eigenentscheidung auf Basis qualitativer Brief-09-Belege.
+- Die **Timeout-Zahlen** (4 h Push, 24 h Mail, 72 h zweite Mail) sind
+  Eigenentscheidung auf Basis qualitativer Brief-09-Belege. Kein Default-
+  Auto-Abandon (ADR-0012, V0.2.0-Korrektur).
 - Die **WIP-Zahlen** sind gestützt (Brief 10), aber konkret-parametrisiert
   durch Design.
 

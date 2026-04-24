@@ -1,6 +1,6 @@
 ---
 title: Personal Agentic Control System — V1 Specification
-version: 0.2.1-draft
+version: 0.2.2-draft
 status: draft
 date: 2026-04-24
 template: arc42 v8.2
@@ -349,6 +349,26 @@ und Retry-Semantik, haben eigenes Schema und Retention-Policy.
 3. Normalisierung → `Evidence(kind=benchmark)` in Knowledge.
 4. Ergebnis ist sichtbar via `agentctl benchmarks show` — **ändert keine
    Dispatch-Policy automatisch**.
+
+**Benchmark-Refresh → Pin-Kuration (F0005, wöchentlicher HITL-Batch)**
+1. Nutzer (oder Scheduler in v1.x) ruft `agentctl benchmarks refresh`.
+2. Aktuelle Benchmark-Daten werden ausgewertet (Stale-Warnung > 14 Tage).
+3. **Modell-Arrival-Detection:** neue `model_id` in Benchmarks, die nicht
+   in `model-inventory.yaml` steht → `candidate_new_model`-Proposal.
+4. **Pin-Drift-Detection:** für jeden Pin in `routing-pins.yaml`
+   Vergleich gegen Top-Modell der zugeordneten Task-Klasse (Mapping:
+   `config/dispatch/benchmark-task-mapping.yaml`); Delta ≥ Schwelle
+   (Default 3 pp) → `candidate_pin_change`-Proposal.
+5. Proposals landen in `config/dispatch/pending-proposals.yaml`
+   (Append-only, 14-Tage-Expiry).
+6. Nutzer läuft `agentctl dispatch review`, akzeptiert via `accept` oder
+   lehnt via `reject`. **Keine automatische Anwendung** — bleibt HITL.
+7. Akzeptierte Proposals modifizieren `routing-pins.yaml` bzw.
+   `model-inventory.yaml` mit `AuditEvent`-Eintrag (ADR-0011).
+
+Dieser Flow ist **kein** Runtime-Auto-Dispatch. Er ist ein kalter
+Batch-Pfad, der Pins offline gegen aktuelle Benchmarks neu abgleicht.
+Runtime-Dispatch liest nur die gepflegten `routing-pins.yaml` (§8.6).
 
 **Digest-Card (ADR-0012)**
 Low-Risk-System-Health-Signale (Benchmark-Drift, Cost-Trend, Sandbox-

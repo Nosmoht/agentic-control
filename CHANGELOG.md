@@ -6,6 +6,39 @@ Versionen folgen [Semantic Versioning](https://semver.org/) für Specs
 (Major = Breaking Change im Datenmodell oder in Modul-Grenzen,
 Minor = additiv, Patch = Klarstellungen/Fixes).
 
+## [0.2.2-draft] — 2026-04-24
+
+Additives Release. Führt den **Benchmark-kuratierten Pin-Refresh-Loop**
+als eigenes Feature ein, das die Nutzer-Anforderung „wöchentlich
+prüfen, welches LLM hinter welchem Tool am besten ist, und Pins
+entsprechend aktualisieren" operationalisiert. **Nicht** als
+Runtime-Auto-Dispatch (das bleibt empirisch verworfen), sondern als
+kalter HITL-Batch-Pfad neben dem deterministischen `pinned`-Lookup.
+
+### Added
+
+- `docs/features/F0005-benchmark-curated-pin-refresh.md` (Stage v1a):
+  - `agentctl benchmarks refresh` detektiert Modell-Arrival und
+    Pin-Drift gegen aktuelle Benchmarks.
+  - `agentctl dispatch review / accept / reject` als HITL-
+    Kurationsoberfläche; Proposals landen in
+    `config/dispatch/pending-proposals.yaml` mit 14-Tage-Expiry.
+  - Neue Config `config/dispatch/benchmark-task-mapping.yaml` mappt
+    Task-Klassen auf Benchmarks (`coding: swe_bench_verified`, etc.)
+    und enthält die Drift-Schwelle (Default 3 pp).
+- **SPECIFICATION.md §6.2:** neuer Fluss „Benchmark-Refresh →
+  Pin-Kuration (F0005)" direkt unter „Benchmark-Awareness-Pull";
+  explizite Abgrenzung „kein Runtime-Auto-Dispatch".
+
+### Changed
+
+- **`docs/features/README.md` Feature-Index** und **`docs/plans/project-plan.md`
+  Feature-Index** um F0005 ergänzt; Dependency-Graph im Plan zeigt
+  F0003 + F0004 → F0005; kritischer v1a-Pfad aktualisiert.
+- **SPECIFICATION.md Frontmatter** `version: 0.2.1-draft → 0.2.2-draft`.
+- **AGENTS.md, README.md, spec-reviewer.md, spec-navigator/SKILL.md**
+  Stand auf V0.2.2-draft gezogen.
+
 ## [0.2.1-draft] — 2026-04-24
 
 Patch-Release nach Follow-up-Review durch Codex

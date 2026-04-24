@@ -31,10 +31,10 @@ Substanz haben. Bis dahin genügt diese Tabelle.
 
 | ID | Titel | Stage | Status | ADR | Spec | Notiz |
 |---|---|---|---|---|---|---|
-| F0001 | SQLite Schema for Core Objects | v0 | proposed | ADR-0001 | §5.7 | Ausgangspunkt v0 |
+| F0001 | SQLite Schema for Core Objects | v0 | proposed | ADR-0001, ADR-0003 | §5.7 | Ausgangspunkt v0 |
 | F0002 | `work add` / `work next` CLI | v0 | proposed | ADR-0001 | §5.3 | Einziger v0-Einstieg |
-| F0003 | Cost-Aware Routing Stub | v1 | proposed | ADR-0014 | §5.3, §8.6 | Minimal-Router, keine Kendall-τ-Mathematik |
-| F0004 | Benchmark Awareness (Manual Pull) | v1 | proposed | ADR-0014 | §5.5, §8.6 | `agentctl benchmarks pull`; Awareness, kein Auto-Dispatch |
+| F0003 | Cost-Aware Routing Stub | v1a | proposed | ADR-0014 | §5.3, §8.6 | Minimal-Router, keine Kendall-τ-Mathematik |
+| F0004 | Benchmark Awareness (Manual Pull) | v1a | proposed | ADR-0014 | §5.5, §8.6 | `agentctl benchmarks pull`; Awareness, kein Auto-Dispatch |
 
 Weitere Features entstehen mit ADR-Implementierung:
 - ADRs 0010–0013 bekommen Feature-Files, sobald die Implementierung in

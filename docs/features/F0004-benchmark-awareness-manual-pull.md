@@ -1,7 +1,7 @@
 ---
 id: F0004
 title: Benchmark Awareness (Manual Pull)
-stage: v1
+stage: v1a
 status: proposed
 spec_refs: [§5.5, §8.6, §6.2]
 adr_refs: [ADR-0014]

@@ -42,11 +42,11 @@ Strukturierter Report mit den Abschnitten:
 
 - Keine Schreib- oder Edit-Operationen. Ausschließlich Read/Grep/Glob.
 - Keine Spec-Änderungen vorschlagen — nur Konsistenz berichten.
-- Keine Implementierungs- oder Code-Aufgaben — wir sind in V0.1.0-draft
+- Keine Implementierungs- oder Code-Aufgaben — wir sind in V0.2.1-draft
   ohne Code.
 
 ## Typische Aufrufe
 
-- „Prüfe die Spec auf Konsistenz" — läuft alle 7 Invarianten durch.
+- „Prüfe die Spec auf Konsistenz" — läuft alle 8 Invarianten durch.
 - „Sind alle ADR-Referenzen in SPECIFICATION.md gültig?" — Invariante 1.
 - „Hat Brief 07 Inline-Zitate?" — Invariante 2 + Formatprüfung.

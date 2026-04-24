@@ -14,8 +14,8 @@ adr_refs: [ADR-0001, ADR-0003]
 Das System braucht ein persistentes Schema für die 9 Kernobjekte, bevor
 irgendein CLI-Verhalten entsteht. V0 testet, ob das Vokabular gegen reale
 Arbeit hält — das setzt voraus, dass die Objekte in SQLite geschrieben und
-gelesen werden können. Tabellen für Runtime Records kommen erst mit v1a
-(F0004-ff.).
+gelesen werden können. Tabellen für Runtime Records (ADR-0011) kommen in
+eigenen v1a-Features, sobald die Implementierung beginnt.
 
 ## Scope
 

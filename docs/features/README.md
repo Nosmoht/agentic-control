@@ -19,7 +19,7 @@ Beispiel: `F0003-cost-aware-routing-stub.md`.
 ---
 id: F0001
 title: SQLite Schema for Core Objects
-stage: v0                    # v0 | v1 | v2 | v3
+stage: v0                    # v0 | v1 | v1a | v1b | v2 | v3
 status: proposed             # proposed | in_progress | done | rejected | superseded
 spec_refs: [§5.7]
 adr_refs: [ADR-0001]
@@ -76,10 +76,10 @@ Manuell gepflegt. Bei Änderung an Frontmatter bitte hier aktualisieren.
 
 | ID | Titel | Stage | Status | ADR | Spec |
 |---|---|---|---|---|---|
-| F0001 | SQLite Schema for Core Objects | v0 | proposed | ADR-0001 | §5.7 |
+| F0001 | SQLite Schema for Core Objects | v0 | proposed | ADR-0001, ADR-0003 | §5.7 |
 | F0002 | `work add` / `work next` CLI | v0 | proposed | ADR-0001 | §5.3 |
-| F0003 | Cost-Aware Routing Stub | v1 | proposed | ADR-0014 | §5.3, §8.6 |
-| F0004 | Benchmark Awareness (Manual Pull) | v1 | proposed | ADR-0014 | §5.5, §8.6 |
+| F0003 | Cost-Aware Routing Stub | v1a | proposed | ADR-0014 | §5.3, §8.6 |
+| F0004 | Benchmark Awareness (Manual Pull) | v1a | proposed | ADR-0014 | §5.5, §8.6 |
 
 ## Verweise
 

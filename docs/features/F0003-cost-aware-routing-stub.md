@@ -1,7 +1,7 @@
 ---
 id: F0003
 title: Cost-Aware Routing Stub
-stage: v1
+stage: v1a
 status: proposed
 spec_refs: [§5.3, §8.6]
 adr_refs: [ADR-0014]

@@ -1,6 +1,6 @@
 ---
 title: Personal Agentic Control System — V1 Specification
-version: 0.2.0-draft
+version: 0.2.1-draft
 status: draft
 date: 2026-04-24
 template: arc42 v8.2
@@ -294,7 +294,12 @@ und Retry-Semantik, haben eigenes Schema und Retention-Policy.
 
 - `Project`: `idea → candidate → active → dormant → archived`
 - `Work Item`: `proposed → accepted → planned → ready → in_progress → waiting/blocked → completed/abandoned`
+  - HITL-Sub-States von `waiting/blocked` (ADR-0012): `waiting_for_approval`,
+    `stale_waiting`, `timed_out_rejected`. `abandoned` nur explizit oder bei
+    30-Tage-Inaktivität eines low-risk-markierten Items.
 - `Run`: `created → running → paused/waiting/retrying → completed/failed/aborted`
+  - Zwischenzustand `needs_reconciliation` nach Litestream-Restore, bis
+    externe Effekte per Idempotency-Key (ADR-0011) abgeglichen sind (§10.4).
 - `Dependency`: `proposed → established → satisfied/violated → obsolete`
 - `Standard`: `candidate → accepted → bound → retired`
 - `Artifact`: `registered → available → consumed → superseded → archived`
@@ -525,7 +530,7 @@ Einstiegs-Index der MADRs in [`../decisions/`](../decisions/):
 | 0005 | 4-Stufen-Standards-Promotion | accepted |
 | 0006 | 8-Schichten-Sandbox-MVS | accepted (Follow-up in ADR-0010) |
 | 0007 | HITL per Inbox-Kaskade, nicht Push | accepted (präzisiert durch ADR-0012) |
-| 0008 | 4-Scope-Budget-Gate | accepted |
+| 0008 | 4-Scope-Budget-Gate | accepted (Task-Row in V0.2.1-draft korrigiert: OR statt AND) |
 | 0009 | AGENTS.md als Quelle, CLAUDE.md als Symlink | accepted |
 | 0010 | Execution Harness Contract | accepted |
 | 0011 | Runtime Audit and Run Attempts | accepted |

@@ -101,7 +101,16 @@ Scope. Siehe ADR-0014.
 
 ## HITL (Human in the Loop)
 Punkte, an denen das System menschliche Freigabe einholt. Per Inbox-Kaskade
-(4h/24h/72h), nicht synchroner Push. Siehe ADR-0007.
+(4h/24h/72h), nicht synchroner Push. Siehe ADR-0007 und ADR-0012 (Timeout-
+Semantik: vier Zustände, disjunktive Kriterien, kein Default-Auto-Abandon).
+
+## HITL-Sub-States
+Vier explizite Sub-Zustände eines wartenden Work Items (ADR-0012):
+`waiting_for_approval` (Gate gezogen, Approval steht aus), `stale_waiting`
+(Reminder gesendet nach 24 h, Work Item bleibt offen), `timed_out_rejected`
+(harte Deadline abgelaufen → Auto-Reject, **nie** Auto-Approve),
+`abandoned` (explizit beendet oder 30-Tage-Inaktivität bei low-risk-
+markierten Items). Siehe SPECIFICATION.md §5.7, §6.2.
 
 ## Interaction
 Modul für Control Surface, Intent-Klassifikation, HITL-Inbox, Single-User-
@@ -124,6 +133,12 @@ Pflege: monatlich manuell.
 ## MADR
 Markdown Architecture Decision Record. Format für Entscheidungen in
 `docs/decisions/`.
+
+## Needs Reconciliation
+Zwischenzustand einer Run nach Litestream-Restore auf einem frischen Host
+(§10.4 Testmatrix). Solange externe Effekte nicht per Idempotency-Key
+(ADR-0011) abgeglichen sind, bleibt die Run in diesem Zustand — kein
+automatischer Weitergang zu `completed`/`failed`.
 
 ## Modular Monolith
 Architektur-Idiom mit klaren Modul-Grenzen, aber ohne Service-Deployment.

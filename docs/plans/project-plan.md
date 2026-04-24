@@ -35,6 +35,7 @@ Substanz haben. Bis dahin genügt diese Tabelle.
 | F0002 | `work add` / `work next` CLI | v0 | proposed | ADR-0001 | §5.3 | Einziger v0-Einstieg |
 | F0003 | Cost-Aware Routing Stub | v1a | proposed | ADR-0014 | §5.3, §8.6 | Minimal-Router, keine Kendall-τ-Mathematik |
 | F0004 | Benchmark Awareness (Manual Pull) | v1a | proposed | ADR-0014 | §5.5, §8.6 | `agentctl benchmarks pull`; Awareness, kein Auto-Dispatch |
+| F0005 | Benchmark-Curated Pin Refresh | v1a | proposed | ADR-0014 | §5.3, §6.2, §8.6 | Wöchentlicher HITL-Kurations-Loop; Modell-Arrival + Pin-Drift |
 
 Weitere Features entstehen mit ADR-Implementierung:
 - ADRs 0010–0013 bekommen Feature-Files, sobald die Implementierung in
@@ -47,18 +48,22 @@ graph LR
   F0001 --> F0002
   F0001 --> F0003
   F0001 --> F0004
+  F0003 --> F0005
+  F0004 --> F0005
   F0002 -.no direct dep.- F0003
   F0002 -.no direct dep.- F0004
 ```
 
 F0001 (Schema) ist Voraussetzung für alles. F0002 (CLI) ist v0-Gate.
-F0003/F0004 sind v1-Themen und können nach F0002 parallel starten.
+F0003/F0004 sind v1a-Themen und können nach F0002 parallel starten.
+F0005 ist der Kurations-Loop und hängt an beidem (liest Benchmarks aus
+F0004, schreibt Pins aus F0003).
 
 ## Kritische Pfade
 
 - **v0-Pfad:** F0001 → F0002 → v0-Exit.
-- **v1-Pfad:** F0001 → [F0003, F0004] → Implementierung der ADRs 0010–0014
-  → v1a-Exit.
+- **v1a-Pfad:** F0001 → [F0003, F0004] → F0005 → Implementierung der
+  ADRs 0010–0014 → v1a-Exit.
 
 ## Offene Entscheidungen
 

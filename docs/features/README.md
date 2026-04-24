@@ -80,6 +80,7 @@ Manuell gepflegt. Bei Änderung an Frontmatter bitte hier aktualisieren.
 | F0002 | `work add` / `work next` CLI | v0 | proposed | ADR-0001 | §5.3 |
 | F0003 | Cost-Aware Routing Stub | v1a | proposed | ADR-0014 | §5.3, §8.6 |
 | F0004 | Benchmark Awareness (Manual Pull) | v1a | proposed | ADR-0014 | §5.5, §8.6 |
+| F0005 | Benchmark-Curated Pin Refresh | v1a | proposed | ADR-0014 | §5.3, §6.2, §8.6 |
 
 ## Verweise
 

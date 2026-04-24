@@ -1,6 +1,8 @@
 # ADR-0008: 4-Scope-Budget-Gate als Middleware
 
-* Status: accepted
+* Status: accepted — **korrigiert in V0.2.1-draft**: Task-Row-Semantik ist
+  `OR` (unabhängige harte Caps), nicht `AND`. Siehe Korrektur in der Tabelle
+  unten und Spec §8.3 (Counter-Review Befund 5).
 * Date: 2026-04-23
 * Context: `docs/spec/SPECIFICATION.md §8.3`
 
@@ -35,9 +37,13 @@ Gewählt: **Option 4 — 4 Scopes**.
 | Scope | Hard-Cap | Aktion bei Überschreitung |
 |---|---|---|
 | Request | max_tokens + Preis-Projektion < $0,50 | sofort `reject` |
-| Task (Run) | $2 AND 25 Turns AND 15 min Wall-Clock | `abort` Run |
+| Task (Run) | $2 **OR** 25 Turns **OR** 15 min Wall-Clock | `abort` Run |
 | Projekt/Tag | soft $5 / hard $15 | `pause` → HITL-Override |
 | Global/Tag | $25 hard | `suspend` System |
+
+**OR-Semantik (V0.2.1-draft):** Die Task-Row-Caps sind unabhängige harte
+Bedingungen — jede für sich bricht ab. Die frühere Formulierung „AND"
+war irreführend (ein Cap = Abbruch). Spec §8.3 ist normativ.
 
 ### Empfohlene Optimierungen
 

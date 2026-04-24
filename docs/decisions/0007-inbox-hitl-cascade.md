@@ -1,6 +1,8 @@
 # ADR-0007: HITL-Eskalation per Inbox-Kaskade, kein synchroner Push
 
-* Status: accepted
+* Status: accepted — **präzisiert und teilweise ersetzt durch ADR-0012**
+  (Auto-Abandon entfällt als Default; Eskalations-Kriterien sind
+  **disjunktiv**, nicht kumulativ; vier explizite Zustände).
 * Date: 2026-04-23
 * Context: `docs/spec/SPECIFICATION.md §6.2, §8`
 
@@ -41,14 +43,19 @@ Gewählt: **Option 3 — Inbox-Kaskade**.
 | t=0 | Inbox-Card mit Risiko-Klasse, Kontext, Optionen |
 | t=4 h | Push-Notification (nur Risiko ≥ medium) |
 | t=24 h | Mail-Reminder |
-| t=72 h | Work Item auto-`abandoned`, Observation geloggt, Bericht beim nächsten `work next` |
+| t=72 h | ~~Work Item auto-`abandoned`~~ — **durch ADR-0012 aufgehoben**: kein Default-Auto-Abandon; stattdessen zweite Mail + `stale_waiting`-Flag. Auto-Reject nur bei harter Deadline (`timed_out_rejected`). |
 
 ### Eskalations-Kriterien
 
-Kumulativ:
+~~Kumulativ~~ — **durch ADR-0012 ersetzt: disjunktiv (OR).** Ein Gate
+wird getriggert, wenn **mindestens eine** der folgenden Bedingungen greift:
 - Irreversibilität × Blast-Radius (irreversibel + außenwirksam → Pflicht).
 - Kalibrierte Konfidenz unter Schwelle (nicht rohe LLM-Confidence).
 - Standardreaktionen (Clarify, Wait, Retry, Replan, Reject) erschöpft.
+- Policy-Klasse verlangt Approval (Tag `needs_human_review` o. ä.).
+
+Endgültige Semantik und vier explizite Zustände (`waiting_for_approval`,
+`stale_waiting`, `timed_out_rejected`, `abandoned`): siehe ADR-0012.
 
 ### Konsequenzen
 
@@ -73,6 +80,7 @@ sie müssen nur selten sein.
 
 ## Referenzen
 
+- ADR-0012 — HITL Timeout Semantics (präzisiert und ersetzt Teile dieser ADR)
 - `docs/research/09-hitl.md` — UX-Muster, Trust-Calibration, Alert-Fatigue
 - Mark, Gudith & Klocke 2008 — Attention-Interruption-Cost
 - Leroy 2009 OBHDP — Attention-Residue

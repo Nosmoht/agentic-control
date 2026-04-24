@@ -49,6 +49,7 @@ Gewählt: **Option 2** — Runtime Records als Technik-Querschnitt.
 | `ToolCallRecord` | SQLite-Tabelle | Einzelner Tool-Call innerhalb einer RunAttempt; Tool, Input-Hash, Output-Ref, Duration, Exit, Idempotency-Key falls extern wirksam |
 | `PolicyDecision` | SQLite-Tabelle | Entscheidung einer Policy (Admission, Dispatch, Budget-Gate, HITL-Trigger); Subject-Ref, Policy-Name, Inputs, Output, Timestamp |
 | `SandboxViolation` | SQLite-Tabelle + Alert | Verweigerter Egress, Config-Write, cgroup-Limit; RunAttempt-Ref, Timestamp, Kategorie, Details |
+| `DispatchDecision` | SQLite-Tabelle | Adapter + Modell + Begründung (Pin vs. Default vs. Cost-Aware) pro RunAttempt; frozen; Evidence-Refs; Definition siehe ADR-0014 §Cost-Aware-Routing-Policy |
 
 ### Beziehungen
 

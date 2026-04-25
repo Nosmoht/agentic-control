@@ -1,0 +1,120 @@
+# Tool-Risk-Inventory
+#
+# Klassifikation, welche Tools mit welcher Approval-Policy laufen dürfen.
+# Wird vor jedem Tool-Call vom Orchestrator gegen den geplanten Aufruf
+# gematcht. Erste Match gewinnt; nicht gematchte Tools fallen auf
+# `default` zurück (fail-closed).
+#
+# Schema und Vertrag siehe ADR-0015.
+#
+# Risk-Klassen:
+#   low          — lokal, reversibel, abgeschlossen (file_read, grep)
+#   medium       — lokal mit Side-Effect (file_write innerhalb worktree,
+#                  shell_exec ohne Netzwerk/State-Modifikation)
+#   high         — außenwirksam, nicht-trivial (gh issue comment, slack)
+#   irreversible — außenwirksam, schwer rückgängig (git push, gh pr merge)
+#
+# Approval-Modi:
+#   never         — kein HITL-Gate
+#   required      — ApprovalRequest ziehen, Run pausiert bis Freigabe
+#   policy_gated  — disjunktive Kriterien aus ADR-0012 zusätzlich werten
+
+version: 1
+updated: 2026-04-25
+
+tools:
+  # Lese-/Such-Operationen (low)
+  - pattern: "file_read"
+    risk: low
+    approval: never
+
+  - pattern: "file_search"
+    risk: low
+    approval: never
+
+  - pattern: "grep"
+    risk: low
+    approval: never
+
+  # Lokale Schreib-Operationen (medium)
+  - pattern: "file_write"
+    risk: medium
+    approval: never
+    constraint: "path within worktree"
+
+  - pattern: "file_edit"
+    risk: medium
+    approval: never
+    constraint: "path within worktree"
+
+  - pattern: "shell_exec"
+    risk: medium
+    approval: never
+    constraint: "no network, no state-modifying syscalls (no kill, no rm outside worktree)"
+
+  # Git-Operationen
+  - pattern: "git_commit"
+    risk: medium
+    approval: never
+
+  - pattern: "git_branch"
+    risk: low
+    approval: never
+
+  - pattern: "git_push"
+    risk: irreversible
+    approval: required
+
+  - pattern: "git_force_push"
+    risk: irreversible
+    approval: required
+
+  # GitHub-Operationen (außenwirksam)
+  - pattern: "gh_issue_create"
+    risk: high
+    approval: required
+
+  - pattern: "gh_issue_comment"
+    risk: high
+    approval: required
+
+  - pattern: "gh_pr_create"
+    risk: high
+    approval: required
+
+  - pattern: "gh_pr_comment"
+    risk: high
+    approval: required
+
+  - pattern: "gh_pr_merge"
+    risk: irreversible
+    approval: required
+
+  - pattern: "gh_*"
+    risk: high
+    approval: required
+    # Catch-all für nicht explizit gelistete gh-Subkommandos.
+
+  # Notification-Side-Effects (außenwirksam)
+  - pattern: "slack_post"
+    risk: high
+    approval: required
+
+  - pattern: "email_send"
+    risk: high
+    approval: required
+
+  # Web-/Netz-Operationen
+  - pattern: "web_fetch"
+    risk: low
+    approval: never
+    constraint: "egress proxy allowlist (ADR-0010)"
+
+  - pattern: "web_search"
+    risk: low
+    approval: never
+
+# Fail-closed Default für jedes nicht oben gelistete Tool.
+default:
+  risk: high
+  approval: required

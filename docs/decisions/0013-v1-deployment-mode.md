@@ -21,7 +21,9 @@ Der Counter-Review (Befund 1) hat diesen Widerspruch als kritisch markiert.
 - Klarheit für den Implementierer, welcher Modus wann gilt.
 - Minimaler Operations-Aufwand für n=1.
 - Klarer Upgrade-Pfad ohne Datenmigration bei Wechsel.
-- Keine stillen Write-Konflikte (Dual-Write-Fehlerklasse).
+- Keine stillen Write-Konflikte auf der DB-Seite (Dual-Write-
+  Fehlerklasse). Externe-Effekt-Idempotenz ist orthogonal und in
+  ADR-0011 V0.2.3-draft eigenständig adressiert.
 
 ## Erwogene Optionen
 

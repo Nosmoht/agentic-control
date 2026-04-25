@@ -70,29 +70,81 @@ DispatchDecision (Runtime Record, aus ADR-0014)
   └── Frozen pro RunAttempt; enthält Adapter, Modell, Pin-Referenz oder Router-Output.
 ```
 
-### Idempotenz-Keys für externe Effekte
+### Drei Effektklassen mit unterschiedlicher Idempotenz-Qualität
 
-Jeder externe Effekt bekommt einen stabilen Idempotency-Key, abgelegt im
-`ToolCallRecord.idempotency_key`:
+Externe Effekte sind nicht alle gleich behandelbar. V0.2.3-draft (nach
+Counter-Review-2026-04-24, neuer Befund 3) unterscheidet drei Klassen,
+weil sie verschiedene Crash-Fenster und Recovery-Pfade haben:
 
-| Effekt | Key-Schema |
-|---|---|
-| Git-Commit | Commit-Hash (natürliche Idempotenz) |
-| GitHub-Issue-Comment | `sha256(run_attempt_id + tool_call_ordinal + body)` |
-| GitHub-PR-Create | `sha256(run_attempt_id + branch_name + title)` |
-| Notification (Slack/Mail) | `sha256(run_attempt_id + tool_call_ordinal + channel)` |
-| File-Write | Datei-Pfad + Content-SHA256 (natürliche Idempotenz) |
+| Klasse | Beispiel | Idempotenz-Mechanismus | Restrisiko |
+|---|---|---|---|
+| **Natürlich-idempotent** | Git-Commit, File-Write innerhalb Worktree | Inhalts-Hash; Wiederholung ergibt denselben Hash → System erkennt Duplikat trivial. | Keine Duplikate möglich. |
+| **Provider-keyed** | GitHub-PR-Create mit `Idempotency-Key`-Header (wo Provider unterstützt) | Key wird providerseitig deduplikiert; Crash zwischen Send und lokalem Persist führt nicht zu Duplikat, sondern zu sicherem Retry mit demselben Key. | Restrisiko nur, wenn Provider den Key nicht respektiert. |
+| **Lokal-only** | Slack/Mail-Post, GitHub-Issue-Comment (kein providerseitiger Key) | Lokaler Idempotenz-Key in `ToolCallRecord.idempotency_key`; **Crash zwischen externem Effekt und Persist erzeugt echten Duplikat-Pfad.** | Reconciliation nötig (siehe unten). |
 
-Regel: Vor Ausführung eines externen Effekts prüft der Orchestrator, ob ein
+#### Key-Schema pro Klasse
+
+| Effekt | Klasse | Key |
+|---|---|---|
+| Git-Commit | natürlich | Commit-Hash |
+| File-Write innerhalb Worktree | natürlich | Datei-Pfad + Content-SHA256 |
+| GitHub-PR-Create (mit GH-Idempotency-Key) | provider-keyed | `gh-{run_attempt_id}-{tool_call_ordinal}` als Header |
+| GitHub-Issue-Comment | lokal-only | `sha256(run_attempt_id + tool_call_ordinal + body)` |
+| Slack-Post | lokal-only | `sha256(run_attempt_id + tool_call_ordinal + channel + body)` |
+| Mail-Send | lokal-only | `sha256(run_attempt_id + tool_call_ordinal + recipient + subject)` |
+
+#### Pre-Send-Check für alle Klassen
+
+Vor Ausführung eines externen Effekts prüft der Orchestrator, ob ein
 `ToolCallRecord` mit demselben `idempotency_key` bereits existiert. Wenn
-ja, wird der Effekt übersprungen und der vorhandene Output zurückgegeben.
+ja, wird der Effekt übersprungen und der vorhandene Output
+zurückgegeben. Dieser Check schützt **gegen Retries innerhalb desselben
+Run-Lifecycles** — er löst die Crash-Lücke der lokal-only-Klasse
+**nicht** auf.
+
+### Reconciliation-Mechanismus für lokal-only-Klasse
+
+Für die lokal-only-Klasse besteht ein verbleibendes Crash-Fenster
+zwischen externem Effekt und lokalem `ToolCallRecord`-Persist. Wenn der
+Prozess in genau diesem Fenster stirbt, läuft der nächste Restart in
+eine echte At-Least-Once-Situation: der Effekt **könnte** schon gesendet
+sein oder noch nicht.
+
+Mechanismus:
+
+1. **Run-Lifecycle-Zwischenzustand `needs_reconciliation`** (Spec §5.7)
+   markiert nach Litestream-Restore alle laufenden Runs als
+   reconciliation-pflichtig.
+2. **CLI-Befehl `agentctl runs reconcile <run-id>`** geht durch alle
+   nicht persistierten lokal-only-Effekte und stellt dem Nutzer pro
+   Effekt drei Optionen:
+   - **erfolgt** → Persist nachholen, Duplikat verhindern.
+   - **unsicher** → Provider-Side-Check (z. B. `gh issue list --search
+     "<idempotency_key in body>"`), wenn der Provider eine solche
+     Suche unterstützt; sonst manuell prüfen.
+   - **nicht erfolgt** → Run regulär weiterlaufen lassen.
+3. **Abschluss**: Run wechselt von `needs_reconciliation` zurück in den
+   Lifecycle-Pfad (`running` oder `failed` je nach Reconcile-Resultat),
+   sobald alle lokal-only-Effekte abgehakt sind. Der Reconcile-Vorgang
+   selbst erzeugt eigene `AuditEvent`-Records.
+
+Diese Klasse ist klein in der Praxis (n=1, wenige `gh comment`-Calls
+pro Tag), aber asymmetrisch teuer wenn übersehen — daher der explizite
+Mechanismus.
 
 ### Post-Flight-Vertrag
 
 Der Harness (ADR-0010) liefert die strukturierten Exit-Artefakte; der
-Orchestrator schreibt sie in die Runtime-Record-Tabellen. Schritt-Checkpoints
-in DBOS und diese Writes liegen **in derselben Transaktion** (DBOS-
-Eigenschaft, ADR-0002) — Dual-Write-Fehler konstruktiv ausgeschlossen.
+Orchestrator schreibt sie in die Runtime-Record-Tabellen. Schritt-
+Checkpoints in DBOS und diese Writes liegen **in derselben Transaktion**
+(DBOS-Eigenschaft, ADR-0002) — auf der **DB-Seite** sind Dual-Write-
+Fehler konstruktiv ausgeschlossen.
+
+**Wichtig (V0.2.3-draft):** Diese Garantie gilt nur für die
+DB-Schreibseite. Sie schließt **nicht** die Lücke zwischen einem
+bereits abgesetzten externen Effekt der lokal-only-Klasse und seinem
+lokalen `ToolCallRecord`-Persist. Diese orthogonale Klasse adressiert
+der oben beschriebene Reconciliation-Mechanismus.
 
 ### Konsequenzen
 
@@ -112,8 +164,13 @@ Eigenschaft, ADR-0002) — Dual-Write-Fehler konstruktiv ausgeschlossen.
 
 - Retention-Policy für JSONL-Logs (vorschlagen: 90 Tage lokal, danach
   archivieren nach S3).
-- Export-Schema für den Fall, dass der Nutzer Runtime-Records ausführen
+- Export-Schema für den Fall, dass der Nutzer Runtime-Records
   exportieren will (Portabilitäts-Anforderung aus Spec §2).
+- `agentctl runs reconcile`-CLI als eigenes F-Feature in v1a, sobald
+  der Mechanismus implementiert wird.
+- Provider-Side-Check-Wrapper (z. B. GitHub-Search-API, Slack-API)
+  als Hilfsbibliothek für den Reconcile-Pfad — separates Feature,
+  optional.
 
 ## Referenzen
 

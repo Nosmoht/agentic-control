@@ -15,7 +15,10 @@ Enterprise-Kosten oder -Komplexität erzeugen.
 
 - Single-User-Betrieb, Ziel Laptop + optional kleiner VPS.
 - Transaktionale Kopplung von Step-Checkpoint und Domänen-Write soll
-  Dual-Write-Fehler per Design ausschließen.
+  Dual-Write-Fehler **auf der DB-Seite** per Design ausschließen.
+  (Externe Effekte mit lokal-only-Idempotenz adressiert ADR-0011
+  V0.2.3-draft separat über Reconciliation; das ist eine orthogonale
+  Klasse, die DBOS allein nicht löst.)
 - Keine separate Cluster-Infrastruktur (Kassandra, Elasticsearch).
 - Integration mit gängigen LLM/Agent-Stacks (Pydantic AI, OpenAI Agents,
   LlamaIndex) wünschenswert.

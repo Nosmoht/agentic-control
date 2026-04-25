@@ -158,8 +158,11 @@ Modul für Projekte, Dependencies, Binding-Scope. Policy als Querschnitt
 ## Pinned Mode
 Betriebsmodus des Dispatchers, in dem `routing-pins.yaml` als Lookup dient
 und bei fehlender Pin der globale Default aus `model-inventory.yaml`
-gewählt wird. V1-Default. Wechselt zu **Cost-Aware Mode**, sobald 5+ Pins
-gepflegt oder 4 Wochen Nutzung vergangen sind. Siehe ADR-0014.
+(`rules.defaults.adapter` + adapter-spezifischer Default) gewählt wird.
+V1-Default und legitime dauerhafte Endstufe (mit F0005-Pin-Kuration).
+Wechsel zu **Cost-Aware Mode** ist **explizites Nutzer-Opt-in** via
+`agentctl dispatch mode cost-aware` — kein automatischer Wechsel auf
+Basis von Pin-Anzahl oder Zeitintervall (V0.2.3-draft, ADR-0014).
 
 ## Progressive Disclosure
 Muster, bei dem nicht die ganze Spec auf einmal geladen wird, sondern per
@@ -210,6 +213,28 @@ In unserem System nur für Parallelismus, nicht für Sicherheitsgrenzen.
 ## Synthesis Document
 `docs/research/99-synthesis.md` — Brücke zwischen den 17 Research-Briefs
 und der normativen Spec.
+
+## Tool-Risk-Inventory
+Normative Konfigurations-Datei (`config/execution/tool-risk-inventory.yaml`,
+ADR-0015), die jedem Tool-Aufrufmuster eine Risk-Klasse (`low` / `medium`
+/ `high` / `irreversible`) und einen Approval-Modus (`never` / `required`
+/ `policy_gated`) zuordnet. Voraussetzung dafür, dass Codex CLI mit
+`approval=never` betrieben werden kann (HITL-Gate wird orchestrator-
+seitig vor dem Tool-Call gezogen). Erste Match gewinnt; nicht
+klassifizierte Tools fallen auf einen fail-closed Default zurück.
+
+## Effect Classes (Idempotenz-Klassen)
+Drei Klassen für externe Effekte mit unterschiedlicher Idempotenz-
+Qualität (ADR-0011 V0.2.3-draft):
+- **natürlich-idempotent** (Git-Commit, File-Write): Inhalts-Hash, keine
+  Duplikate möglich.
+- **provider-keyed** (z. B. GitHub-PR-Create mit Idempotency-Key-Header):
+  Provider deduplikiert; Crash zwischen Send und Persist führt nur zu
+  sicherem Retry.
+- **lokal-only** (GitHub-Issue-Comment, Slack-Post, Mail): nur lokaler
+  Idempotency-Key in `ToolCallRecord`; Crash-Fenster zwischen externem
+  Effekt und Persist erzeugt echten Duplikat-Pfad → Reconciliation
+  via `agentctl runs reconcile <run-id>`.
 
 ## Trust Zone
 Architektur-Zone mit definierter Vertrauensqualität. 4 Zonen: External

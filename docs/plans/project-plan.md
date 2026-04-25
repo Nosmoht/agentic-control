@@ -79,9 +79,12 @@ anpassen.
 3. **Feature-Lifecycle 3 Zustände.** Reicht für Solo-Betrieb. Ausdehnung
    auf 4–6 Zustände, sobald Review/QA-Gate gebraucht wird.
 4. **Cost-Aware-Routing-Aktivierung.** Default `pinned` (`routing-pins.yaml`
-   als Lookup) in v1a. `cost-aware`-Modus (Konfidenz × Kosten) aktiviert
-   sich, sobald 5+ Pins gepflegt ODER 4 Wochen Nutzung, je nachdem, was
-   zuerst eintritt.
+   als Lookup) in v1a. `cost-aware`-Modus (Konfidenz × Kosten) wird
+   **ausschließlich per explizitem Nutzer-Opt-in** über
+   `agentctl dispatch mode cost-aware` aktiviert (V0.2.3-draft, ADR-0014;
+   die frühere „5+ Pins oder 4 Wochen"-Auto-Aktivierung wurde
+   gestrichen, weil empirisch nicht gedeckt). `pinned` mit
+   F0005-Pin-Kuration ist eine legitime Endstufe.
 
 ## Anti-Ziele (bewusst NICHT in diesem Plan)
 

@@ -1,6 +1,6 @@
 ---
 title: Personal Agentic Control System — V1 Specification
-version: 0.2.2-draft
+version: 0.2.3-draft
 status: draft
 date: 2026-04-24
 template: arc42 v8.2
@@ -315,19 +315,23 @@ und Retry-Semantik, haben eigenes Schema und Retention-Policy.
 
 **Work Item → Dispatch → Run → Completion**
 1. Work Item in `ready`.
-2. **Dispatcher** (§5.3) wählt Adapter + Modell:
+2. **Dispatcher** (§5.3) wählt Adapter + Modell als **vorläufige**
+   Auswahl:
    - Prüft `routing-pins.yaml`; wenn Match → Pin gewinnt.
-   - Sonst Cost-Aware-Routing (Konfidenzschätzung via Haiku, Tier-Auswahl,
-     Adapter-Eignung). Siehe §8.6.
-   - Erzeugt `DispatchDecision` (Runtime Record).
-3. **Budget-Gate-Check** (§8.3) mit dem gewählten Modell:
-   - Reihenfolge: Dispatch **füttert** die Cost-Projektion ins Gate, nicht
-     umgekehrt.
+   - Sonst Cost-Aware-Routing (siehe §8.6).
+3. **Budget-Gate-Check** (§8.3) mit dem vorläufigen Modell:
+   - Reihenfolge: Dispatch **füttert** die Cost-Projektion ins Gate,
+     nicht umgekehrt.
+   - Wenn Gate günstigeren Kandidaten erzwingt: zusätzlicher
+     `PolicyDecision(policy=budget_gate_override)`-Record, Dispatcher
+     wählt erneut.
    - Wenn harter Cap erreicht: `suspend`/`abort`, kein Run-Start.
-4. DBOS-Workflow: Pre-Flight (Budget, Sandbox, Worktree), Agent-Call via
+4. **Nach Gate** wird die finale Auswahl als `DispatchDecision` (Runtime
+   Record) persistiert und pro RunAttempt **gefroren**.
+5. DBOS-Workflow: Pre-Flight (Budget, Sandbox, Worktree), Agent-Call via
    ausgewähltem `ExecutionAdapter`, Post-Flight (Artefakt-Registrierung,
    Observation-Capture, Runtime-Record-Persistierung).
-5. Run-Resultat wird Artifact. Work Item → `completed` oder `waiting`/
+6. Run-Resultat wird Artifact. Work Item → `completed` oder `waiting`/
    `blocked` bei Zwischenstopp.
 
 **HITL-Eskalation (ADR-0012)**
@@ -448,7 +452,10 @@ bricht ab — Counter-Review Befund 5.
 **Reihenfolge:** Der Dispatcher (§8.6) wählt zuerst Adapter + Modell und
 füttert die Pre-Cost-Projektion ins Gate. Das Gate kann den Dispatcher
 zwingen, einen günstigeren Kandidaten zu wählen (Gate rückwärts zum
-Dispatcher, nicht umgekehrt).
+Dispatcher, nicht umgekehrt). Eine solche Rewahl erscheint als
+`PolicyDecision(policy=budget_gate_override)` (ADR-0011) und wird
+**nicht** als zweite `DispatchDecision` modelliert — die DispatchDecision
+ist immer der **post-gate-finale** Record.
 
 Optimierung: Anthropic Prompt-Caching (stabiler Prefix); Cache-gelesene
 Tokens zählen nicht gegen ITPM.
@@ -510,22 +517,38 @@ Cost-Aware-Routing (RouteLLM-Stil), nicht Task-Class-Specialization.**
 **Policy:**
 
 1. `routing-pins.yaml` (manuelle Overrides) wird zuerst konsultiert.
-   Match → Adapter + Modell aus Pin.
-2. Keine Pin-Matches? `model-inventory.yaml` definiert Defaults pro Adapter.
-   Im `pinned`-Modus (V1-Default) gewinnt der globale Default.
-3. Im `cost-aware`-Modus (aktiviert ab 5+ Pins oder 4 Wochen Nutzung):
+   Match → Adapter + Modell aus Pin (vorläufig).
+2. Kein Pin-Match und Mode = `pinned` (V1-Default, dauerhaft tragbar):
+   `model-inventory.yaml.rules.defaults.adapter` und das passende
+   `defaults[<adapter-name>]`-Modell — Default-Adapter ist
+   konfigurierbar (V1-Vorschlag `claude-code`, ohne ADR-Edit
+   umstellbar; ADR-0014).
+3. Kein Pin-Match und Mode = `cost-aware` (explizites Nutzer-Opt-in
+   via `agentctl dispatch mode cost-aware`):
    a. Confidence-Probe via Haiku.
    b. High Confidence → cheap-tier Default.
    c. Mid Confidence → standard-tier.
    d. Low Confidence → premium-tier (mit Budget-Gate-Check).
-   e. Adapter-Wahl im Tier: coding-Work-Items → Claude Code (7,6-pp-Delta
-      rechtfertigt); sonst günstigerer Adapter.
-4. Budget-Gate kann Dispatcher zwingen, einen günstigeren Kandidaten zu
-   wählen.
+   e. Adapter-Wahl im Tier (Heuristik, kein Hardcode): Coding-Work-Items
+      → Default-Adapter aus Inventory (V1: claude-code, 7,6-pp-Delta);
+      sonst günstigerer Adapter im Tier.
+4. Budget-Gate-Check: kann den Dispatcher zwingen, einen günstigeren
+   Kandidaten zu wählen. Gate-induzierte Rewahl wird als
+   `PolicyDecision(policy=budget_gate_override)` persistiert (ADR-0011),
+   nicht als zweite DispatchDecision.
+5. **Erst nach erfolgreichem Gate-Check** wird die `DispatchDecision`
+   pro RunAttempt **gefroren**. Vor-Gate-Auswahl ist immer vorläufig.
 
-**`DispatchDecision`** wird als Runtime Record persistiert, pro RunAttempt
-**frozen**. Retries nutzen die gefrorene Entscheidung, es sei denn, HITL
-greift.
+**`DispatchDecision`** wird als Runtime Record (ADR-0011) persistiert.
+Sie ist der **post-gate-finale** Record pro RunAttempt — eine
+Vor-Gate-Auswahl ist immer vorläufig, eine Gate-induzierte Rewahl
+erscheint zusätzlich als `PolicyDecision(policy=budget_gate_override)`.
+Retries nutzen die gefrorene Entscheidung, es sei denn, HITL greift.
+
+**Mode-Aktivierung:** Wechsel zwischen `pinned` und `cost-aware` ist
+**explizit** (`agentctl dispatch mode <pinned|cost-aware>`); kein
+automatischer Wechsel auf Basis von Pin-Anzahl oder Zeitintervall
+(ADR-0014).
 
 **Anti-Patterns (bewusst NICHT):**
 - Task-Class-Specializer mit fester Mapping-Taxonomie (Task → Modell).
@@ -556,7 +579,8 @@ Einstiegs-Index der MADRs in [`../decisions/`](../decisions/):
 | 0011 | Runtime Audit and Run Attempts | accepted |
 | 0012 | HITL Timeout Semantics | accepted |
 | 0013 | V1 Deployment Mode | accepted |
-| 0014 | Peer Adapters and Cost-Aware Routing | accepted (amends ADR-0004) |
+| 0014 | Peer Adapters and Cost-Aware Routing | accepted (amends ADR-0004; cost-aware-Auto-Aktivierung in V0.2.3-draft gestrichen) |
+| 0015 | Tool-Risk-Inventory and Approval Routing | accepted |
 
 ## 10 · Qualitätsanforderungen
 
@@ -687,9 +711,12 @@ Teil ist gleichzeitig verfügbar.
 - Feature-Files: noch keine.
 
 **v1 → „cost-aware"-Mode-Aktivierung**
-- Auslöser: 5+ `routing-pins.yaml`-Einträge **oder** 4 Wochen Nutzung, je
-  nachdem, was zuerst eintritt.
+- Auslöser: **explizites Nutzer-Opt-in** via `agentctl dispatch mode
+  cost-aware`. Kein automatischer Wechsel auf Basis von Pin-Anzahl
+  oder Zeit (V0.2.3-draft, ADR-0014).
 - Effekt: Dispatcher nutzt Confidence-Probe + Tier-Routing statt Defaults.
+- Optional dauerhaft: `pinned`-Mode mit F0005-Kuration ist eine
+  legitime Endstufe, kein Pflicht-Upgrade-Pfad zu `cost-aware`.
 
 **v2 — „Portfolio-Koordination"** (8–10 Wochen)
 - Was drin: `Dependency`, Knowledge-Review-Hook, Benchmark-Scheduler,

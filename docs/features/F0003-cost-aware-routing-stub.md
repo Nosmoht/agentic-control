@@ -13,9 +13,10 @@ adr_refs: [ADR-0014]
 
 ADR-0014 legt Cost-Aware-Routing als Dispatch-Policy fest. In v1 startet das
 System im `pinned`-Modus: `routing-pins.yaml` dient als Lookup-Tabelle,
-Default-Fallback aus `model-inventory.yaml`. Erst nach 5+ Pins oder 4
-Wochen Nutzung wird der `cost-aware`-Modus aktiviert (Haiku-Confidence-
-Probe, Tier-Routing). Dieser Stub liefert die minimale tragfähige Form.
+Default-Fallback aus `model-inventory.yaml.rules.defaults`. Der
+`cost-aware`-Modus wird **ausschließlich per explizitem Nutzer-Opt-in**
+über `agentctl dispatch mode cost-aware` aktiviert (V0.2.3-draft,
+ADR-0014). Dieser Stub liefert die minimale tragfähige Form.
 
 ## Scope
 
@@ -72,9 +73,10 @@ Probe, Tier-Routing). Dieser Stub liefert die minimale tragfähige Form.
   Datei und temporärer DB.
 - Manuell: Nutzer pint ein Work-Item-Type und prüft via `show`, dass das
   Pin tatsächlich greift.
-- Regression: nach 5+ Pins + `agentctl dispatch mode` wird der
-  Pfad-Hinweis auf `cost-aware`-Modus sichtbar (UI-Hinweis, noch keine
-  Logik).
+- Regression: `agentctl dispatch mode cost-aware` aktiviert den
+  Modus explizit (UI-Hinweis bei Wechsel, Logik selbst noch in
+  separatem Feature). Es gibt **keinen** Auto-Wechsel auf Basis
+  Pin-Anzahl oder Zeit (ADR-0014).
 
 ## Rollback
 

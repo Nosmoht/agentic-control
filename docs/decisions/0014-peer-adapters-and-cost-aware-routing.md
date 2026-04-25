@@ -54,7 +54,18 @@ Gewählt: **Option 4**.
 Claude Code und Codex CLI sind gleichwertige `ExecutionAdapter`-
 Implementierungen. Der Orchestrator unterscheidet sie nur dort, wo die
 Schnittstelle es vorschreibt (Tool-Allowlist-Übersetzung, Approval-Mode).
-Kein Vorrang, keine „Primary"-Rolle.
+
+**Pinned-Mode-Default ist konfigurierbar, nicht hartcodiert:** Im V1-
+`pinned`-Mode wählt der Dispatcher den Adapter aus
+`config/dispatch/model-inventory.yaml` (`rules.defaults.adapter`),
+wenn kein Pin matched. Der V1-Vorschlag ist `claude-code`, empirisch
+begründet durch das 7,6-pp-Coding-Delta in SWE-bench Verified
+(Plan-Appendix A) und heutige Nutzungspraxis. Der Nutzer kann den
+Default jederzeit in der Config umstellen, ohne diese ADR zu ändern.
+
+Diese Trennung ist absichtlich: „beide Peers im Vertrag, einer ist
+der V1-Default" ist ehrlicher als „beide gleichwertig" mit verstecktem
+Hardcode (Counter-Review-2026-04-24, neuer Befund 1).
 
 ### `ExecutionAdapter`-Interface (inline, kein separater ADR-0018)
 
@@ -120,43 +131,66 @@ Adapter + Modell. Entscheidungsfunktion:
 
 ```
 1. Prüfe routing-pins.yaml:
-   - Wenn ein Pin matched → Adapter + Modell aus Pin, begründete
-     DispatchDecision, Ende.
+   - Wenn ein Pin matched → vorläufige DispatchDecision (Adapter +
+     Modell aus Pin, Begründung "pin"), weiter zu Schritt 4.
 
-2. Wenn kein Pin, aber Nutzer in 'pinned'-Mode (default bis 5+ Pins
-   gepflegt oder 4 Wochen vergangen):
-   - Nutze model-inventory.defaults[adapter] mit adapter=claude-code als
-     globalem Default.
-   - Begründete DispatchDecision, Ende.
+2. Wenn kein Pin und Mode = pinned (V1-Default, dauerhaft tragbar):
+   - Lies model-inventory.yaml.rules.defaults.adapter und das passende
+     model-inventory.yaml.rules.defaults[<adapter-name>]-Modell.
+   - Vorläufige DispatchDecision, weiter zu Schritt 4.
 
-3. Wenn 'cost-aware'-Mode aktiv:
+3. Wenn kein Pin und Mode = cost-aware (explizites Nutzer-Opt-in via
+   `agentctl dispatch mode cost-aware`):
    a. Konfidenzschätzung via Haiku (confidence_probe_model aus inventory):
       "Task X — schafft ein cheap-tier Modell das mit hoher Konfidenz?"
       → {confidence: float 0..1, rationale: str}
-   b. Wenn confidence >= 0.8: nutze cheap-tier Default (Haiku oder
-      GPT-5 mini).
-   c. Wenn 0.5 <= confidence < 0.8: nutze standard-tier (Sonnet oder
-      GPT-5 mini, je nach Budget).
-   d. Wenn confidence < 0.5: nutze premium-tier (Opus oder GPT-5.4), mit
-      Budget-Gate-Prüfung.
-   e. Adapter-Wahl innerhalb Tier:
-      - Wenn Work Item hat `work_item_type: coding_*` → Claude Code
-        (7,6-pp-Vorteil in SWE-bench Verified gerechtfertigt).
+   b. Wenn confidence >= 0.8: nutze cheap-tier Default.
+   c. Wenn 0.5 <= confidence < 0.8: nutze standard-tier.
+   d. Wenn confidence < 0.5: nutze premium-tier.
+   e. Adapter-Wahl innerhalb Tier (Heuristik, kein Hardcode):
+      - Coding-Work-Items (Match gegen
+        config/dispatch/benchmark-task-mapping.yaml `coding`) →
+        Default-Adapter aus Inventory (V1-Vorschlag claude-code,
+        empirisch durch 7,6-pp-SWE-bench-Delta begründet).
       - Sonst → Adapter mit niedrigerem Input-Preis im gewählten Tier.
-   f. Begründete DispatchDecision.
+   f. Vorläufige DispatchDecision, weiter zu Schritt 4.
 
-4. Budget-Gate-Check (ADR-0008) mit dem gewählten Modell:
+4. Budget-Gate-Check (ADR-0008) auf vorläufiger DispatchDecision:
    - Wenn Pre-Cost-Projektion > Projekt/Tag-Soft-Cap: Dispatcher wählt
-     günstigeren Tier-Kandidaten erneut.
+     günstigeren Tier-Kandidaten erneut. Diese Rewahl wird als
+     zusätzlicher `PolicyDecision(policy=budget_gate_override)`
+     persistiert (ADR-0011) — **nicht** als zweite DispatchDecision.
    - Wenn Global-Hard-Cap erreicht: `suspend`, kein Dispatch.
+
+5. **Nach erfolgreichem Gate-Check** wird DispatchDecision pro RunAttempt
+   gefroren. Retries des Runs nutzen die gefrorene Entscheidung, es sei
+   denn HITL greift.
 ```
 
-Reihenfolge: **Dispatch → Budget-Gate-Check → Run-Start**. Dispatch füttert
-die Cost-Projektion ins Gate, nicht umgekehrt.
+Reihenfolge: **Dispatch → Budget-Gate → Freeze → Run-Start**. Dispatch
+füttert die Cost-Projektion ins Gate; das Gate kann den Dispatcher
+zurückzwingen, aber erst die finale post-gate-Auswahl wird gefroren.
 
-`DispatchDecision` wird als Runtime Record (ADR-0011) persistiert und pro
-`RunAttempt` **frozen** — Retries nutzen dieselbe Entscheidung, es sei denn,
-HITL greift.
+`DispatchDecision` ist also der **post-gate-final** Record. Eine
+Vor-Gate-Auswahl, die durch das Gate verdrängt wurde, wird **nicht**
+als DispatchDecision persistiert — sie taucht ausschließlich als
+`PolicyDecision(policy=budget_gate_override)` mit Verweis auf den
+verworfenen Kandidaten auf (Counter-Review-2026-04-24, neuer Befund 2).
+
+### Mode-Aktivierung: explizit, nicht automatisch
+
+Der Wechsel von `pinned` zu `cost-aware` erfolgt **ausschließlich**
+über `agentctl dispatch mode cost-aware` (zurück:
+`agentctl dispatch mode pinned`). Es gibt **keinen** automatischen
+Wechsel auf Basis von Pin-Anzahl, Zeitintervall oder anderen
+Heuristiken — die frühere Regel „5+ Pins oder 4 Wochen" wurde
+gestrichen, weil sie eine empirisch nicht gedeckte Architektur-
+Ableitung war (Counter-Review-2026-04-24, neuer Befund 7;
+RouteLLM-Evidenz bezieht sich auf API-Modell-Routing auf MT Bench,
+nicht auf Headless-Agent-CLI-Routing).
+
+Der `pinned`-Mode kann dauerhaft genutzt werden, wenn F0005 die Pins
+kuratiert. `cost-aware` ist Upgrade-Pfad, kein Default-Endzustand.
 
 ### Codex Approval Mode (entscheidet: `approval=never`)
 
@@ -165,9 +199,11 @@ aufgerufen. Begründung:
 - Single-Adapter-Approval-Architektur, keine Bridging-Komplexität.
 - Protected Paths (`.git`, `.codex`, `.agents`) bleiben read-only durch
   Codex-Natives — zusätzlicher Schutz.
-- HITL-Gates werden **orchestrator-seitig** durch den Tool-Risk-Inventory
-  (ADR-0007, ADR-0011 `PolicyDecision`) ausgelöst, nicht durch Codex-native
-  Prompts.
+- HITL-Gates werden **orchestrator-seitig** durch das Tool-Risk-Inventory
+  (ADR-0015, `config/execution/tool-risk-inventory.yaml`) ausgelöst,
+  nicht durch Codex-native Prompts. Ohne dieses normative Artefakt
+  wäre `approval=never` kein Vertragszustand, sondern ein implizites
+  Versprechen (Counter-Review-2026-04-24, neuer Befund 6).
 
 `on-request`-Mode bleibt als `policy_gated`-Profil dokumentiert; aktiviert
 über einen künftigen ADR, sobald Bedarf entsteht (z. B. Codex-Cloud-Nutzung
@@ -205,7 +241,14 @@ mit fremden Repos).
 
 ### Follow-ups
 
-- Eigene ADRs **0015** (Codex-Approval-Mode-Details) und **0016/0017**
+- **ADR-Split-Marker:** Diese ADR bündelt vier konzeptionelle
+  Entscheidungen — Peer-Stance, ExecutionAdapter-Interface,
+  Routing-Policy, Codex-Approval-Mode. Bei der nächsten substantiellen
+  Änderung an einer dieser Achsen wird sie in eigene ADRs aufgespalten
+  (Renumbering oder 0014a–0014d). Bis dahin: inline tragbar
+  (Counter-Review-2026-04-24, Architekturperspektive).
+- Eigene ADRs **0016** (Codex-Approval-Mode-Details, frühere Reservierung
+  ADR-0015 wurde an das Tool-Risk-Inventory vergeben) und **0017/0018**
   (Adapter-spezifische Harness-Profile), sobald die Adapter implementiert
   werden (v1a-Scope).
 - Learned Router als v2-Kandidat evaluieren, wenn 100+ DispatchDecisions
@@ -218,8 +261,10 @@ mit fremden Repos).
 - ADR-0007 — HITL-Inbox-Kaskade
 - ADR-0008 — 4-Scope-Budget-Gate (nachgelagert zum Dispatch)
 - ADR-0010 — Execution Harness Contract
-- ADR-0011 — Runtime Records (inkl. `DispatchDecision`)
+- ADR-0011 — Runtime Records (inkl. `DispatchDecision`,
+  `PolicyDecision`)
 - ADR-0012 — HITL Timeout Semantics
+- ADR-0015 — Tool-Risk-Inventory (Voraussetzung für `approval=never`)
 - `docs/research/01-claude-code.md`, `docs/research/02-codex-cli.md` — Adapter-Spezifika
 - `docs/research/05-agent-patterns.md` — Routing als Muster
 - `docs/research/13-cost.md` — Preisanker

@@ -16,8 +16,8 @@
 # Hinweis: 'strength' ist NICHT Dispatch-Eingabe — nur dokumentarisch.
 # Der Router entscheidet nach Konfidenz × Kosten, nicht nach Task-Tag.
 
-version: 1
-updated: 2026-04-24
+version: 2
+updated: 2026-04-25
 
 models:
   - id: claude-opus-4-7
@@ -102,8 +102,14 @@ rules:
     - claude-code
     - codex-cli
 
-  # Default-Modell pro Adapter, wenn kein Pin greift.
+  # Defaults im pinned-Mode, wenn kein Pin matched.
   defaults:
+    # Globaler Default-Adapter. V1-Vorschlag claude-code wegen
+    # 7,6-pp-Coding-Delta in SWE-bench Verified (siehe ADR-0014,
+    # Plan-Appendix A). Konfigurierbar ohne ADR-Edit.
+    adapter: claude-code
+    # Default-Modell pro Adapter (wird gewählt, wenn der globale
+    # Default-Adapter aktiv ist und kein Pin matched).
     claude-code: claude-sonnet-4-6
     codex-cli: gpt-5-mini
 

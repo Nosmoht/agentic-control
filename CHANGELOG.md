@@ -6,6 +6,88 @@ Versionen folgen [Semantic Versioning](https://semver.org/) für Specs
 (Major = Breaking Change im Datenmodell oder in Modul-Grenzen,
 Minor = additiv, Patch = Klarstellungen/Fixes).
 
+## [0.2.3-draft] — 2026-04-25
+
+Adressiert die fünf verbliebenen Architekturfragen aus dem
+Codex-Follow-up-Review (`docs/reviews/2026-04-24-followup-review.md`),
+die V0.2.1-draft als „Urteilssachen" abgespalten hatte: Peer-Adapter-
+Asymmetrie, DispatchDecision-Freeze-Zeitpunkt, Tool-Risk-Inventar,
+`cost-aware`-Auto-Aktivierung, Idempotenz-Overclaim, ADR-0014-Split-
+Marker.
+
+### Added
+
+- **ADR-0015 (Tool-Risk-Inventory and Approval Routing).** Neue
+  normative Entscheidung mit vier Risk-Klassen (`low` / `medium` /
+  `high` / `irreversible`), drei Approval-Modi, Orchestrator-Vertrag
+  und fail-closed-Default. Voraussetzung dafür, dass Codex CLI mit
+  `approval=never` betrieben werden kann.
+- **`config/execution/tool-risk-inventory.yaml`** mit ~21 Seed-
+  Einträgen (Datei-/Such-/Lokal-Schreib-/Git-/GitHub-/Notification-/
+  Web-Pattern + Catch-all `gh_*`). Pflege wie `model-inventory.yaml`.
+- **GLOSSARY.md** Einträge für `Tool-Risk-Inventory` und für die drei
+  Effekt-Klassen (`Effect Classes`).
+- **Reconciliation-Mechanismus** in ADR-0011: `agentctl runs reconcile
+  <run-id>` als CLI-Vorgang für die lokal-only-Effekt-Klasse.
+
+### Changed
+
+- **ADR-0014 Peer-Adapter-Stance.** „Kein Vorrang, keine Primary-Rolle"
+  ersetzt durch ehrliche Formulierung: „Peers im Vertrag, Default-
+  Adapter konfigurierbar via `model-inventory.yaml.rules.defaults.adapter`,
+  V1-Vorschlag claude-code". Adressiert Counter-Review-Befund 1
+  (formal symmetrisch, operativ asymmetrisch).
+- **ADR-0014 Cost-Aware-Routing-Policy.** Pre-Gate vs. Post-Gate
+  Freeze-Zeitpunkt klargestellt: DispatchDecision wird **nach**
+  Gate-Check gefroren; Gate-induzierte Rewahl erscheint als
+  zusätzlicher `PolicyDecision(policy=budget_gate_override)`,
+  **nicht** als zweite DispatchDecision. Adressiert
+  Counter-Review-Befund 2.
+- **ADR-0014 Mode-Aktivierung.** Auto-Aktivierung „5+ Pins oder
+  4 Wochen Nutzung" **ersatzlos gestrichen**; Wechsel zwischen
+  `pinned` und `cost-aware` ist nur noch via
+  `agentctl dispatch mode <mode>` möglich. `pinned` mit F0005-Kuration
+  ist legitime Endstufe. Adressiert Counter-Review-Befund 7.
+- **ADR-0014 Codex-Approval-Mode-Begründung.** Verweis auf ADR-0015
+  als normatives Tool-Risk-Inventar, statt impliziter
+  „ADR-0007 + PolicyDecision"-Kombination.
+- **ADR-0014 Follow-ups.** ADR-Split-Marker ergänzt („bei nächster
+  substantieller Änderung in eigene ADRs aufspalten"); ADR-0015 ist
+  jetzt das Tool-Risk-Inventory, Codex-Approval-Mode-Details auf
+  ADR-0016 verschoben (frühere Reservierung).
+- **ADR-0011 Idempotenz-Sektion.** Drei Effekt-Klassen (natürlich-
+  idempotent / provider-keyed / lokal-only) mit jeweils eigener
+  Restrisiko-Charakterisierung; Reconciliation-Mechanismus für
+  lokal-only inline. Der Satz „Dual-Write-Fehler konstruktiv
+  ausgeschlossen" ist auf die DB-Seite begrenzt; die externe Crash-
+  Lücke wird explizit benannt. Adressiert Counter-Review-Befund 3.
+- **`config/dispatch/model-inventory.yaml`** `rules.defaults.adapter`
+  als neuer Schlüssel (V1: `claude-code`); `version: 2`.
+- **SPECIFICATION.md §6.2** Dispatch-Flow: vorläufige Auswahl,
+  Gate-Rewahl als PolicyDecision, post-gate-Freeze.
+- **SPECIFICATION.md §8.3** Budget-Gate: Gate-Override erscheint als
+  PolicyDecision, nicht als zweite DispatchDecision.
+- **SPECIFICATION.md §8.6** Policy-Block neu sortiert (1: Pin, 2:
+  pinned mit konfigurierbarem Default, 3: cost-aware, 4: Gate, 5:
+  Freeze); Mode-Aktivierung explizit als Opt-in.
+- **SPECIFICATION.md §9** ADR-Tabelle: ADR-0015 ergänzt; ADR-0014-
+  Status-Note um „cost-aware-Auto-Aktivierung gestrichen".
+- **SPECIFICATION.md Appendix A v1** „cost-aware"-Mode-Aktivierungs-
+  Trigger umgeschrieben auf Opt-in.
+- **SPECIFICATION.md Frontmatter** `version: 0.2.2-draft → 0.2.3-draft`.
+- **`docs/plans/project-plan.md`** Open Decisions Punkt 4 auf Opt-in
+  umgeschrieben.
+- **AGENTS.md, README.md, spec-reviewer.md, spec-navigator/SKILL.md**
+  Stand auf V0.2.3-draft, Datum 2026-04-25.
+- **GLOSSARY.md `Pinned Mode`** an den V0.2.3-Stand gezogen
+  (Auto-Aktivierung gestrichen, Opt-in-Wortlaut, F0005-Verweis).
+- **F0003-cost-aware-routing-stub** Context und Test-Plan auf den
+  V0.2.3-Stand gezogen (kein Auto-Wechsel mehr).
+- **ADR-0002 Treiber** und **ADR-0013 Treiber** Dual-Write-Aussage
+  explizit auf die DB-Seite begrenzt; Verweis auf
+  ADR-0011-V0.2.3-Reconciliation für die orthogonale Klasse externer
+  Effekte.
+
 ## [0.2.2-draft] — 2026-04-24
 
 Additives Release. Führt den **Benchmark-kuratierten Pin-Refresh-Loop**

@@ -66,12 +66,27 @@ F0001 → F0008 → F0006 → [F0003, F0004, F0007] → F0005.
    §5.7 (inkl. `needs_reconciliation`) sind gültig.
 4. FK auf `artifact.origin_run_ref` ist aktiv: Insert mit
    nicht-existentem Run schlägt fehl.
-5. Polymorphe `evidence.subject_ref` akzeptiert mindestens
+5. CHECK-Constraint auf `artifact.state` ist aktiv: Insert mit
+   `state='bogus'` schlägt fehl; alle Lifecycle-States aus Spec
+   §6.1 (`registered`, `available`, `consumed`, `superseded`,
+   `archived`) sind gültig
+   (Counter-Counter-Counter-Counter-Review-2026-04-26 Befund 4).
+6. Polymorphe `evidence.subject_ref` akzeptiert mindestens
    `work_item:<id>`, `run:<id>`, `artifact:<id>`, `decision:<id>`;
    `kind`-Werte `benchmark` und `decision_evidence` sind erlaubt.
-6. Migration ist idempotent: zweite Ausführung erzeugt keinen Fehler
+7. **Negative-Tests `evidence.subject_ref`:**
+   - Insert ohne Präfix-Trennzeichen (`work_item42`) schlägt einer
+     Format-Validierung fehl (CHECK-Regex
+     `^(work_item|run|artifact|decision):[A-Za-z0-9_-]+$`).
+   - Insert mit unbekanntem Präfix (`stranger:42`) schlägt fehl.
+   - **Eigenentscheidung (V0.3.2-draft):** ID-Existenz wird
+     **nicht** in SQLite erzwungen (polymorpher FK ist nicht trivial
+     und wäre Overkill für n=1); F0006 prüft die Existenz beim
+     Insert auf Anwendungsebene über einen kleinen Validierungs-
+     Hook, der vor dem `INSERT` die Subject-Tabelle abfragt.
+8. Migration ist idempotent: zweite Ausführung erzeugt keinen Fehler
    und keine Duplikate.
-7. **Integrationstest mit F0001 + F0008 + F0006**: nacheinander
+9. **Integrationstest mit F0001 + F0008 + F0006**: nacheinander
    ausgeführt, das Gesamtschema enthält 4 + 3 + 8 = 15 Tabellen, alle
    FK-Verbindungen funktionieren.
 
@@ -88,8 +103,21 @@ F0001 → F0008 → F0006 → [F0003, F0004, F0007] → F0005.
 
 ## Rollback
 
-`0001b_v1_domain_schema.sql` hat ein Down-Migration-Pendant
-(`0001b_v1_domain_schema_down.sql`), das die drei Tabellen droppt.
-F0001-v0-Tabellen bleiben unberührt. F0006 wird ohne F0008 nicht
-funktionieren — ein Rollback von F0008 setzt v1a auf F0001+F0002
-zurück.
+**Eigenentscheidung (V0.3.2-draft):** v0 und v1a bleiben
+**Forward-Only**, wie in F0001 etabliert. Down-Migration-Skripte sind
+**nicht Teil von V1**. Rollback von F0008 erfolgt über:
+
+1. Git-Restore auf den vorherigen Commit (`git checkout <pre-F0008>
+   -- migrations/`).
+2. Manuelles Drop der drei Tabellen (`DROP TABLE evidence; DROP TABLE
+   artifact; DROP TABLE run;`) falls eine bereits migrierte DB im
+   Live-Betrieb zurückgesetzt werden muss.
+3. F0001-v0-Tabellen bleiben dabei unberührt.
+
+Down-Migrations-Konvention für v2+ ist offen
+(Counter-Counter-Counter-Counter-Review-2026-04-26 Befund 5);
+falls ab v2 produktive Down-Migrationen nötig werden, entsteht
+dafür ein eigener ADR.
+
+F0006 wird ohne F0008 nicht funktionieren — ein Rollback von F0008
+setzt v1a auf F0001+F0002 zurück.

@@ -1,6 +1,6 @@
 ---
 title: Personal Agentic Control System — V1 Specification
-version: 0.2.3-draft
+version: 0.2.4-draft
 status: draft
 date: 2026-04-24
 template: arc42 v8.2
@@ -476,7 +476,10 @@ JSONL-Logs ableitbar. Normatives Minimum:
 
 ### 8.5 Agent-Aufruf-Disziplin (Peer-Adapter)
 
-Beide Adapter werden in gleicher Tiefe dokumentiert und verwendet:
+Beide Adapter werden in gleicher Tiefe **vertraglich dokumentiert**;
+die tatsächliche Default-Nutzung im `pinned`-Mode folgt §8.6 und der
+konfigurierbaren `model-inventory.yaml.rules.defaults.adapter` (V1-
+Vorschlag `claude-code`, ADR-0014):
 
 - **Claude Code headless:**
   ```
@@ -621,9 +624,22 @@ Wird pro Release-Stage erfüllt (siehe Appendix A). Minimum pro v1-Release:
 
 - Unit: Policy- und Budget-Entscheidungen.
 - Integration: Worktree-Isolation, Egress-Blocking.
-- Crash: Prozess stirbt nach Agent-Call vor Post-Flight — Retry dupliziert
-  externe Effekte nicht (Idempotency-Keys, ADR-0011).
-- Retry: externer Effekt wird nicht doppelt registriert.
+- Crash nach Agent-Call vor Post-Flight, drei Effektklassen aus
+  ADR-0011 separat geprüft:
+  - **natürlich-idempotent** (Git-Commit, File-Write innerhalb
+    Worktree): Wiederholung erzeugt identischen Inhalts-Hash → System
+    erkennt Duplikat trivial, keine Duplikate möglich.
+  - **provider-keyed** (z. B. GitHub-PR-Create mit
+    `Idempotency-Key`-Header, sofern Provider unterstützt): Provider
+    dedupliziert; Retry mit demselben Key ist sicher.
+  - **lokal-only** (GitHub-Issue-Comment, Slack-Post, Mail-Send):
+    Run wechselt nach Restore in `needs_reconciliation`; manueller
+    Abgleich via `agentctl runs reconcile <run-id>` bestätigt jeden
+    nicht persistierten Effekt einzeln (drei Optionen je Effekt:
+    erfolgt / unsicher / nicht erfolgt).
+- Retry innerhalb desselben Run-Lifecycles: externer Effekt wird über
+  `ToolCallRecord.idempotency_key` nicht doppelt registriert (alle drei
+  Klassen).
 - HITL: Approval bleibt über Restart erhalten.
 - Restore: Litestream-Recovery auf frischem Host, nach Restore sind
   laufende Runs als `needs_reconciliation` markiert.

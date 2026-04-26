@@ -5,6 +5,7 @@ stage: v1a
 status: proposed
 spec_refs: [§5.7, §6.2, §8.4, §10.4]
 adr_refs: [ADR-0001, ADR-0003, ADR-0011, ADR-0016]
+depends_on: [F0001, F0008]
 ---
 
 # F0006 · Runtime Records SQLite Schema and Reconcile CLI
@@ -26,8 +27,11 @@ zwischen F0001 (v0-Schema) und F0003/F0004/F0005.
 ## Scope
 
 - **SQLite-Tabellen für die acht Runtime-Record-Typen** aus ADR-0011,
-  als Migration `0002_runtime_records.sql` auf das F0001-Schema:
-  - `run_attempt` mit FK auf `run`.
+  als Migration `0002_runtime_records.sql` auf das F0001-+-F0008-
+  Schema (F0008 liefert die Domain-Tabellen `run`, `artifact`,
+  `evidence`, ohne die `run_attempt` keinen FK-Anker hätte —
+  Counter-Counter-Counter-Review-2026-04-26 Befund 1):
+  - `run_attempt` mit FK auf `run` (geliefert durch F0008).
   - `audit_event`, polymorphe `subject_ref`-Spalte (Typ + ID).
   - `approval_request` mit FK auf Work Item.
   - `budget_ledger_entry` mit Scope-Tagging (request/task/project-day/
@@ -84,9 +88,13 @@ zwischen F0001 (v0-Schema) und F0003/F0004/F0005.
    Pflichtfeldern aus ADR-0011.
 2. Foreign-Key-Constraints sind aktiv: `run_attempt` ohne
    existierenden `run_ref` schlägt fehl.
-3. `tool_call_record.idempotency_key` ist UNIQUE pro
-   (`run_attempt_id`, `tool_call_ordinal`); doppelter Insert schlägt
-   fehl.
+3. `tool_call_record` hat zwei UNIQUE-Constraints: `(run_attempt_id,
+   tool_call_ordinal)` für reihenfolgenstabile Records **und**
+   `(run_attempt_id, idempotency_key)` für die Pre-Send-Check-
+   Semantik aus ADR-0011 §Pre-Send-Check (`idempotency_key` darf NULL
+   sein bei Tool-Calls ohne externen Effekt). Doppelter Insert mit
+   gleichem `idempotency_key` schlägt fehl
+   (Counter-Counter-Counter-Review-2026-04-26 Befund 3).
 4. `agentctl runs inspect <id>` liefert für eine Beispiel-Run mit
    2 Tool-Calls + 1 ApprovalRequest + 1 BudgetLedgerEntry alle vier
    Records sortiert nach Timestamp.
@@ -111,6 +119,20 @@ zwischen F0001 (v0-Schema) und F0003/F0004/F0005.
     <id>` auf einer bereits reconcileten Run zeigt eine klare
     „Nichts zu tun"-Meldung und erzeugt keine doppelten
     `AuditEvent`-Rows.
+11. **`DispatchDecision`-Roundtrip:** `runs inspect <id>` zeigt
+    genau eine `dispatch_decision`-Row pro `RunAttempt` (post-gate-
+    final, frozen, ADR-0014). Insert einer zweiten
+    `dispatch_decision` für denselben `run_attempt_id` schlägt fehl
+    (UNIQUE-Constraint).
+12. **`PolicyDecision`-Differenzierung:** Der `policy`-Tag
+    unterscheidet mindestens `admission`, `dispatch`,
+    `budget_gate_override`, `hitl_trigger`, `tool_risk_match`
+    (CHECK-Constraint). `runs inspect` listet `PolicyDecision`-Rows
+    nach `policy`-Tag gefiltert.
+13. **`SandboxViolation`-Insert:** Insert einer Violation mit
+    Kategorie `egress_denied` und Detail-JSON erscheint in
+    `runs inspect` und triggert einen Stub-Alert-Hook (zunächst
+    nur Logger; echter Alert in späterem Feature).
 
 ## Test Plan
 

@@ -6,6 +6,48 @@ Versionen folgen [Semantic Versioning](https://semver.org/) für Specs
 (Major = Breaking Change im Datenmodell oder in Modul-Grenzen,
 Minor = additiv, Patch = Klarstellungen/Fixes).
 
+## [0.2.4-draft] — 2026-04-26
+
+Patch-Release nach drittem Codex-Follow-up-Review
+(`docs/reviews/2026-04-26-followup-review-2.md`). Schließt fünf
+konkrete Drifts, die V0.2.1/0.2.2/0.2.3 in der eigentlichen
+Architekturarbeit übersehen hatten. Keine neuen Entscheidungen, keine
+Scope-Erweiterung — Schicht A im 04-26-Reaktions-Plan.
+
+### Fixed
+
+- **SPECIFICATION.md §10.4** Crash-Akzeptanzkriterium von einer
+  pauschalen Idempotency-Keys-Aussage auf drei differenzierte
+  Assertions gezogen, je eine pro ADR-0011-Effektklasse (natürlich-
+  idempotent / provider-keyed / lokal-only mit `agentctl runs
+  reconcile`-Pfad). Adressiert 04-26-Befund 1.
+- **SPECIFICATION.md §8.5** Aufruf-Disziplin: „in gleicher Tiefe
+  dokumentiert und verwendet" → „in gleicher Tiefe vertraglich
+  dokumentiert; Default-Nutzung folgt §8.6/Inventory". Adressiert
+  04-26-Befund 2 (V0.2.3-Honest-Default driftete sonst gegen den
+  Symmetrie-Wortlaut).
+- **docs/plans/project-plan.md** Header von `Version: 0.2.0-draft,
+  Stand: 2026-04-24` auf `Version: 0.2.4-draft, Stand: 2026-04-26`.
+  In V0.2.1/0.2.2/0.2.3 jedes Mal beim Versions-Bump übersehen.
+
+### Added
+
+- **`config/dispatch/benchmark-task-mapping.yaml`** als Seed-Datei mit
+  Schema (`task_to_benchmark`, `drift_threshold_pp`), Default-Schwelle
+  3 pp und initialem Mapping für coding/reasoning/general/math/
+  long_context. Adressiert 04-26-Befund 4 (Spec referenzierte den
+  Pfad bereits, Datei fehlte im Repo).
+
+### Changed
+
+- **F0005** kennzeichnet die 3-pp-Drift-Schwelle und die Adapter-
+  Prefix-Regel (`claude-*`/`gpt-*`/`o-*`/`gemini-*` → Adapter)
+  ausdrücklich als **Eigenentscheidungen** mit Hinweis auf den
+  ADR-0014-Konflikt der Prefix-Regel. Adressiert 04-26-Befunde 5 + 6.
+- **SPECIFICATION.md Frontmatter** `version: 0.2.3-draft → 0.2.4-draft`.
+- **AGENTS.md, README.md, spec-reviewer.md, spec-navigator/SKILL.md**
+  Stand auf V0.2.4-draft, Datum 2026-04-26.
+
 ## [0.2.3-draft] — 2026-04-25
 
 Adressiert die fünf verbliebenen Architekturfragen aus dem

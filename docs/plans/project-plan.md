@@ -1,6 +1,6 @@
 # Project Plan
 
-**Version:** 0.2.0-draft · **Stand:** 2026-04-24
+**Version:** 0.2.4-draft · **Stand:** 2026-04-26
 
 Dieser Plan ist die Eine-Seite-Sicht auf die Roadmap. Details leben in der
 Spec (`docs/spec/SPECIFICATION.md`), den ADRs (`docs/decisions/`), den

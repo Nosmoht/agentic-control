@@ -4,7 +4,7 @@ title: Benchmark-Curated Pin Refresh
 stage: v1a
 status: proposed
 spec_refs: [§5.3, §6.2, §8.6]
-adr_refs: [ADR-0014]
+adr_refs: [ADR-0014, ADR-0011, ADR-0016]
 ---
 
 # F0005 · Benchmark-Curated Pin Refresh
@@ -45,9 +45,15 @@ weniger Fix-Runden bei besserer Erstwahl.
     Adapter-Empfehlung), Rationale (menschlich lesbar), Expiry.
 - CLI-Befehl `agentctl dispatch accept <proposal-id>`:
   - Schreibt den Vorschlag in `routing-pins.yaml` bzw.
-    `model-inventory.yaml` (Diff wird angezeigt).
-  - Erzeugt `AuditEvent`-Eintrag (ADR-0011).
-  - Entfernt Proposal aus `pending-proposals.yaml`.
+    `model-inventory.yaml` **gemäß ADR-0016-Config-Write-Vertrag**
+    (Atomic-Write, File-Lock, optimistische Versionsprüfung,
+    `AuditEvent` mit `before_hash`/`after_hash`).
+  - Zeigt Diff vor dem Schreibvorgang.
+  - Bei `ConflictDetected` (Datei wurde zwischen Read und Write
+    extern modifiziert): Abbruch mit klarer Fehlermeldung; Nutzer
+    muss `dispatch review` erneut aufrufen.
+  - Entfernt akzeptierte Proposal aus `pending-proposals.yaml`
+    (ebenfalls über ADR-0016-Vertrag).
 - CLI-Befehl `agentctl dispatch reject <proposal-id> [--reason <text>]`:
   - Entfernt Proposal.
   - Schreibt `Observation(kind=dispatch_rejection)` mit optionaler
@@ -105,23 +111,24 @@ weniger Fix-Runden bei besserer Erstwahl.
    Observation-Log.
 7. Benchmark-Task-Mapping wird beim Refresh validiert (alle Benchmarks
    bekannt, sonst Warnung + Skip der Klasse, kein Abbruch).
-8. Modell-Arrival-Proposal enthält einen Adapter-Vorschlag nach
-   Namens-Prefix-Regel: `claude-*` → `claude-code`, `gpt-*`/`o-*` →
-   `codex-cli`, `gemini-*` → `adapter: null` mit Warnung
-   („kein Adapter in v1"). **Eigenentscheidung (V0.2.4-draft) als
-   Übergangs-Heuristik**, bis ein Adapter-Discovery-Vertrag (z. B.
-   `AdapterDescriptor.supported_models[]` aus ADR-0014 oder ein
-   Inventory-Mapping-Schema) existiert; Prefix-Regel widerspricht der
-   ADR-0014-Aussage „der Orchestrator special-cased keinen Adapter
-   außerhalb einer `describe()`-Abfrage" und ist daher Stop-Gap, nicht
-   normative Zuordnung (Counter-Counter-Review-2026-04-26, neuer
-   Befund 6).
+8. Modell-Arrival-Proposal liest die Adapter-Zuordnung aus
+   `config/dispatch/model-inventory.yaml.rules.adapter_assignment_rules`
+   (V0.3.0-draft). F0005 hardcodet **keine** eigene Prefix-Regel
+   mehr — die Zuordnung lebt im Inventory-Schema, damit der
+   Orchestrator weiterhin keinen Adapter special-casen muss
+   (ADR-0014 Aufruf-Disziplin). Bei Match `adapter: null` wird eine
+   Warnung emittiert („Modell hat keinen unterstützten Adapter in
+   V1"); der Vorschlag bleibt im Proposal sichtbar, kann aber nicht
+   `accept`-iert werden, bis ein Adapter zugeordnet ist.
 9. Drift-Detection respektiert Benchmark-Freshness: Benchmarks älter
    als 60 Tage werden für Drift ignoriert (zu unsicheres Signal),
    eine Warnung wird angezeigt.
-10. `pending-proposals.yaml` ist strukturell stabil gegen parallele
-    Writes (Schreibvorgänge laufen atomar; CLI blockiert, wenn ein
-    anderer `refresh` oder `accept`/`reject` aktiv ist).
+10. Alle drei beschriebenen Config-Dateien (`routing-pins.yaml`,
+    `model-inventory.yaml`, `pending-proposals.yaml`) werden über den
+    **ADR-0016-Config-Write-Vertrag** beschrieben: atomarer Rename,
+    File-Lock, optimistische Versionsprüfung, `AuditEvent`-Eintrag
+    mit Before/After-Hash. Parallele CLI-Sessions blockieren oder
+    fehlschlagen mit klarer Fehlermeldung.
 
 ## Test Plan
 

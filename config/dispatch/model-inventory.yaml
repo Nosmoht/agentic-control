@@ -16,8 +16,8 @@
 # Hinweis: 'strength' ist NICHT Dispatch-Eingabe — nur dokumentarisch.
 # Der Router entscheidet nach Konfidenz × Kosten, nicht nach Task-Tag.
 
-version: 2
-updated: 2026-04-25
+version: 3
+updated: 2026-04-26
 
 models:
   - id: claude-opus-4-7
@@ -115,3 +115,22 @@ rules:
 
   # Confidence-Modell: darf bei jeder Routing-Entscheidung aufgerufen werden.
   confidence_probe_model: claude-haiku-4-5
+
+  # Adapter-Zuordnung für neue Modelle, die noch nicht im Inventar stehen
+  # (F0005 Modell-Arrival-Detection). Erste Match gewinnt.
+  # Eigenentscheidung als Übergangs-Heuristik bis ein Adapter-Discovery-
+  # Vertrag (z. B. AdapterDescriptor.supported_models[] aus ADR-0014)
+  # existiert. Lebt hier statt in F0005, damit der Orchestrator keinen
+  # Adapter special-cased (ADR-0014 Aufruf-Disziplin).
+  adapter_assignment_rules:
+    - pattern: "claude-*"
+      adapter: claude-code
+    - pattern: "gpt-*"
+      adapter: codex-cli
+    - pattern: "o-*"
+      adapter: codex-cli
+    - pattern: "gemini-*"
+      adapter: null  # explizit kein Adapter in V1
+    # Catch-all: kein adapter, Warnung wird von F0005 ausgegeben
+    - pattern: "*"
+      adapter: null

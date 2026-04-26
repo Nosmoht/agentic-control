@@ -66,13 +66,27 @@ Gewählt: **Option 2** — eigener Vertrag mit vier Garantien.
    gehalten. Andere CLI-Sessions blockieren oder fehlschlagen mit
    `EWOULDBLOCK` und einer `agentctl`-Fehlermeldung („Locked by PID
    X — wait or retry").
-3. **Optimistic Version Check.** Jede normative Config-Datei trägt
-   ein `version: int` und/oder `updated: ISO-8601`-Feld in der
-   YAML-Wurzel. Vor dem `rename`-Schritt wird die Datei erneut
-   gelesen; wenn `version` oder `updated` sich seit dem ersten Read
-   geändert haben → `ConflictDetected`-Fehler, kein Write, keine
+3. **Optimistic Conflict Check (Inhalts-Hash + Version).** Jede
+   normative Config-Datei trägt ein `version: int` und/oder `updated:
+   ISO-8601`-Feld in der YAML-Wurzel. Beim initialen Read wird
+   zusätzlich `sha256(file_content)` als `before_hash` gespeichert.
+   Vor dem `rename`-Schritt wird die Datei erneut gelesen; ein
+   Konflikt liegt vor, wenn **eines** der folgenden Kriterien greift
+   (Counter-Counter-Counter-Review-2026-04-26 Befund 7):
+   - `version` oder `updated` haben sich seit dem ersten Read
+     geändert.
+   - `sha256(current_content)` weicht vom initialen `before_hash` ab,
+     auch wenn `version`/`updated` unverändert sind (manueller Editor-
+     Edit ohne Versions-Bump, Datums-Granularität, etc.).
+
+   Bei Konflikt → `ConflictDetected`-Fehler, kein Write, keine
    teilweise modifizierten Daten. Nutzer muss erneut anstoßen
    (typisch `agentctl dispatch review` + `accept`).
+
+   Begründung: `version`/`updated` sind Schema-/Migrationssignale,
+   nicht alleiniger Konfliktschutz. Ein menschlicher Editor pflegt
+   die Felder nicht zwingend mit; der Inhalts-Hash macht die
+   Konflikt-Erkennung robust gegen diesen häufigen Fall.
 4. **Audit Event.** Jeder erfolgreiche Write erzeugt einen
    `AuditEvent`-Record (ADR-0011) mit den Pflichtfeldern:
    - `subject_ref`: Pfad zur Config-Datei.

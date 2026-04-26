@@ -4,7 +4,7 @@ title: Cost-Aware Routing Stub
 stage: v1a
 status: proposed
 spec_refs: [§5.3, §8.6]
-adr_refs: [ADR-0014]
+adr_refs: [ADR-0014, ADR-0016]
 ---
 
 # F0003 · Cost-Aware Routing Stub
@@ -28,7 +28,9 @@ ADR-0014). Dieser Stub liefert die minimale tragfähige Form.
     Modell, Begründung (Pin vs. Default).
 - CLI-Befehl `agentctl dispatch show <work-item-id>` zeigt, welcher Adapter
   + Modell aktuell gewählt würde (Dry-Run, ohne Run-Start).
-- CLI-Befehl `agentctl dispatch pin --work-item-type <x> --adapter <a> --model <m>` schreibt einen Pin in `routing-pins.yaml`.
+- CLI-Befehl `agentctl dispatch pin --work-item-type <x> --adapter <a> --model <m>` schreibt einen Pin in `routing-pins.yaml`
+  **gemäß ADR-0016-Config-Write-Vertrag** (atomarer Rename, File-Lock,
+  optimistische Versionsprüfung, AuditEvent mit Before/After-Hash).
 - **`cost-aware`-Modus als dokumentierter Aktivierungspfad**, aber in v1
   noch nicht implementiert — der Code-Pfad existiert als klar markierter
   `TODO` mit Verweis auf künftiges Feature.

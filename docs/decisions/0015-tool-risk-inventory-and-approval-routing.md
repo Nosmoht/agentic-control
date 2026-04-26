@@ -64,7 +64,7 @@ Gewählt: **Option 2** — eigener ADR und Config-Datei
 | Klasse | Bedeutung | Default-Approval |
 |---|---|---|
 | `low` | Lokal, reversibel, abgeschlossen (z. B. file_read, grep) | `never` |
-| `medium` | Lokal mit Side-Effect (file_write innerhalb Worktree, lokales shell_exec ohne Netz/State-Modifikation) | `never` |
+| `medium` | Lokal mit Side-Effect (file_write innerhalb Worktree; siehe `shell_*`-Splitting unten für Shell-Aufrufe) | `never` |
 | `high` | Außenwirksam, nicht-trivial (gh issue comment, slack post) | `required` |
 | `irreversible` | Außenwirksam, schwer rückgängig (git push, gh pr merge, payment) | `required` |
 
@@ -104,13 +104,38 @@ Vor jedem Tool-Call:
    Konfidenz oder ein Standardreaktions-Erschöpfungs-Trigger
    greift, wird Gate gezogen).
 
+### `shell_*`-Splitting (V0.3.0-draft)
+
+`shell_exec` als einzelner Pattern war zu breit, um `medium`-Klasse
+zuverlässig zu rechtfertigen — eine textuelle Constraint („no
+network, no state-modifying syscalls") ist nicht ausführbar genug,
+um zwischen `cat /etc/passwd`, `curl evil.com` und `rm -rf /`
+sicher zu unterscheiden (Counter-Counter-Review-2026-04-26 Befund
+7). V0.3.0-draft splittet Shell-Aufrufe in vier disjunkte Sub-
+Pattern, die der Adapter beim Übersetzen der Tool-Allowlist
+wählt:
+
+| Pattern | Bedeutung | Klasse | Approval |
+|---|---|---|---|
+| `shell_readonly` | Reine Lese-/Such-Befehle (`ls`, `cat`, `grep`, `find` ohne `-delete`/`-exec`) | `low` | `never` |
+| `shell_worktree_write` | Schreibend, aber auf Worktree begrenzt (`echo > file`, `sed -i` innerhalb Worktree) | `medium` | `never` |
+| `shell_network` | Netzzugriff (`curl`, `wget`, `nc`, `ssh`) | `high` | `required` |
+| `shell_dangerous` | Destruktiv oder system-modifizierend (`rm`, `kill`, `sudo`, `chmod`, `mv` außerhalb Worktree) | `irreversible` | `required` |
+
+Übergangsregel: Bis Adapter-Implementierungen den Sub-Pattern-
+Match selbst übernehmen können, klassifizieren sie unklare Shell-
+Befehle als `shell_dangerous` (fail-closed innerhalb der Shell-
+Klasse). Eine spätere Verfeinerung (parser- oder profilbasierter
+Matcher) kann die Klassifizierung dynamisieren — bleibt Follow-up.
+
 ### V1-Seed (Initial-Inventar)
 
-`config/execution/tool-risk-inventory.yaml` startet mit ~21 Einträgen
-(Datei-/Suche-/Grep-, Lokal-Write-, Git-, GitHub-Pattern, Notification-
-und Web-Fetch). Das Catch-all `gh_*` deckt nicht explizit gelistete
-GitHub-Subkommandos ab. Pflege: bei jedem neuen MCP-Server oder neuen
-Tool wird das Inventar erweitert.
+`config/execution/tool-risk-inventory.yaml` startet mit ~24 Einträgen
+nach dem V0.3.0-Split (Datei-/Suche-/Grep-, vier `shell_*`-Pattern,
+Git-, GitHub-Pattern, Notification- und Web-Fetch). Das Catch-all
+`gh_*` deckt nicht explizit gelistete GitHub-Subkommandos ab.
+Pflege: bei jedem neuen MCP-Server oder neuen Tool wird das
+Inventar erweitert. Drift-Detection siehe F0007.
 
 ### Konsequenzen
 
@@ -139,9 +164,11 @@ Tool wird das Inventar erweitert.
   F-Feature in v1a, sobald die Adapter implementiert werden).
 - Erweiterung um eine `team`-Klasse, sobald Multi-User relevant wird
   (v2+).
-- Tool-Risk-Drift-Detection (analog zu F0005): Inventar gegen
-  tatsächlich aufgerufene Tools auswerten, nicht klassifizierte
-  Tools als Digest-Card melden.
+- **F0007 Tool-Risk-Drift-Detection** (V0.3.0-draft) operationalisiert
+  Inventar-Auswertung als CLI-Befehl und Digest-Card.
+- Parser-/profilbasierter `shell_*`-Matcher, der dynamisch zwischen
+  den vier Sub-Klassen unterscheidet, statt statische Pattern-
+  Listen zu pflegen — v2-Kandidat.
 
 ## Referenzen
 

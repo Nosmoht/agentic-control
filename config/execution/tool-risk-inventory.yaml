@@ -19,8 +19,8 @@
 #   required      — ApprovalRequest ziehen, Run pausiert bis Freigabe
 #   policy_gated  — disjunktive Kriterien aus ADR-0012 zusätzlich werten
 
-version: 1
-updated: 2026-04-25
+version: 2
+updated: 2026-04-26
 
 tools:
   # Lese-/Such-Operationen (low)
@@ -47,10 +47,28 @@ tools:
     approval: never
     constraint: "path within worktree"
 
-  - pattern: "shell_exec"
+  # shell_* Pattern: V0.3.0-Split gegenüber dem alten breiten shell_exec
+  # (siehe ADR-0015 Abschnitt "shell_*-Splitting"). Adapter klassifizieren
+  # unklare Shell-Befehle übergangsweise als shell_dangerous.
+  - pattern: "shell_readonly"
+    risk: low
+    approval: never
+    constraint: "read-only commands only (ls, cat, grep, find without -delete/-exec)"
+
+  - pattern: "shell_worktree_write"
     risk: medium
     approval: never
-    constraint: "no network, no state-modifying syscalls (no kill, no rm outside worktree)"
+    constraint: "writes restricted to worktree path"
+
+  - pattern: "shell_network"
+    risk: high
+    approval: required
+    constraint: "any network egress (curl, wget, nc, ssh)"
+
+  - pattern: "shell_dangerous"
+    risk: irreversible
+    approval: required
+    constraint: "destructive or system-modifying (rm, kill, sudo, chmod, mv outside worktree)"
 
   # Git-Operationen
   - pattern: "git_commit"
@@ -113,6 +131,11 @@ tools:
   - pattern: "web_search"
     risk: low
     approval: never
+
+# Drift-Detection-Schwelle (F0007): Anteil Default-Hits an gesamten
+# Tool-Calls, ab dem eine Digest-Card erzeugt wird. Eigenentscheidung;
+# konservativer Startwert.
+drift_threshold_pct: 5
 
 # Fail-closed Default für jedes nicht oben gelistete Tool.
 default:

@@ -6,6 +6,76 @@ Versionen folgen [Semantic Versioning](https://semver.org/) für Specs
 (Major = Breaking Change im Datenmodell oder in Modul-Grenzen,
 Minor = additiv, Patch = Klarstellungen/Fixes).
 
+## [0.3.2-draft] — 2026-04-26
+
+Konsistenz-Patch nach **fünftem** Codex-Follow-up-Review
+(`docs/reviews/2026-04-26-followup-review-4.md`). Schließt den letzten
+Hoch-Befund (F0006 AC 1 stale gegen F0008-Abhängigkeit), die zwei
+verbliebenen Teilbefunde aus dem vierten Review (N8 Index-Drift, N10
+`threshold_kind`-Enum) und vier mittlere Konventionsbrüche/Lücken.
+Keine neuen Architekturentscheidungen — alles Klarstellungen an
+V0.3.1-Artefakten.
+
+### Fixed
+
+- **F0006 Acceptance Criterion 1.** „Migration läuft auf einer
+  F0001-DB" → „auf einer DB mit erfolgreich ausgeführten F0001- **und**
+  F0008-Migrationen". Plus Negative-Test, dass die Migration ohne
+  F0008 mit klarem Fehler abbricht. Damit ist der einzige Hoch-Befund
+  des fünften Reviews geschlossen.
+- **`docs/features/README.md` Feature-Index F0003** trägt jetzt
+  `ADR-0014, ADR-0016` (vorher nur `ADR-0014`); deckungsgleich mit
+  Frontmatter und Project-Plan. Schließt N8-Restpunkt aus dem vierten
+  Review.
+
+### Changed
+
+- **F0006 AC 12** ergänzt das Schema-Detail für
+  `PolicyDecision(policy=tool_risk_match)`: `subject_ref` zeigt auf
+  `tool_call_record:<id>`, `output`-JSON enthält
+  `{matched_pattern, risk, approval, default_hit}`. Damit ist der
+  Datenvertrag zwischen ADR-0015 (Match-Details), F0006 (Persist) und
+  F0007 (Drift-Audit) geschlossen.
+- **ADR-0011 Runtime-Records-Tabelle** trägt die `tool_risk_match`-
+  Schema-Details als ergänzenden Vertrag in der `PolicyDecision`-
+  Zeile.
+- **SPECIFICATION.md §5.7** PolicyDecision-Zeile listet
+  `Tool-Risk-Match` zusätzlich zu den bisherigen vier Policy-Typen,
+  mit Verweis auf ADR-0011 für Schema-Details.
+- **F0007 AC 4** definiert `threshold_kind ∈ {"default_hit_pct",
+  "unknown_tool_count"}` als CHECK-Constraint mit exakt zwei Werten;
+  `default_hit_pct` braucht ≥ 20 Tool-Calls als Mindest-Denominator,
+  `unknown_tool_count` greift ab > 3 unbekannten Tool-Namen. Schließt
+  N10 aus dem vierten Review.
+- **F0008 ACs erweitert** um `artifact.state`-CHECK-Test (AC 5),
+  Negative-Tests für `evidence.subject_ref` (AC 7: ungültige Präfixe,
+  fehlendes Trennzeichen, Eigenentscheidung zur Anwendungsebene-
+  Validierung), Renumbering auf 1–9.
+- **F0008 Rollback** als Eigenentscheidung **Forward-Only** für
+  v0+v1a markiert; Down-Migrations-Konvention für v2+ offen, eigener
+  ADR bei Bedarf. Frühere Erwähnung eines `_down.sql`-Pendants
+  entfernt; Rollback erfolgt über Git-Restore + manuelles `DROP
+  TABLE`.
+- **`docs/features/README.md` Frontmatter-Konvention** erweitert um
+  optionales `depends_on`-Array. Schließt den Konventionsbruch, dass
+  F0006 und F0007 das Feld bereits nutzten, der README aber „Keine
+  weiteren Felder" sagte.
+- **`docs/plans/project-plan.md`** neuer Abschnitt **„Open v1a-Exit
+  Implementation Gaps"** listet die ADRs, für die noch
+  Implementierungs-Feature-Files fehlen (ADR-0010 Harness inkl.
+  Pattern-Matcher, ADR-0012 Inbox, ADR-0013 Restore-Drill). Damit
+  ist die alte „Pattern-Matcher als Liefer-Slice"-Frage explizit
+  verortet.
+- **SPECIFICATION.md Frontmatter** `version: 0.3.1-draft → 0.3.2-draft`.
+- **AGENTS.md, README.md, spec-reviewer.md, spec-navigator/SKILL.md**
+  Stand auf V0.3.2-draft.
+
+### Added
+
+- **`docs/reviews/_prompts/2026-04-26-fifth-review-prompt.md`** als
+  wiederverwendbares Template für künftige Codex-Follow-up-Reviews
+  eingecheckt. Bisher untracked.
+
 ## [0.3.1-draft] — 2026-04-26
 
 Konsistenz-Patch nach viertem Codex-Follow-up-Review

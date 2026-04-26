@@ -1,6 +1,6 @@
 # Project Plan
 
-**Version:** 0.3.1-draft · **Stand:** 2026-04-26
+**Version:** 0.3.2-draft · **Stand:** 2026-04-26
 
 Dieser Plan ist die Eine-Seite-Sicht auf die Roadmap. Details leben in der
 Spec (`docs/spec/SPECIFICATION.md`), den ADRs (`docs/decisions/`), den
@@ -74,6 +74,25 @@ Inventar (liest `PolicyDecision`-Historie aus F0006).
 - **v0-Pfad:** F0001 → F0002 → v0-Exit.
 - **v1a-Pfad:** F0001 → F0008 → F0006 → [F0003, F0004, F0007] →
   F0005 → Implementierung der ADRs 0010–0016 → v1a-Exit.
+
+## Open v1a-Exit Implementation Gaps
+
+Vor v1a-Exit (nicht vor v1a-Implementierungsstart) brauchen folgende
+ADRs eigene Implementierungs-Feature-Files. V0.3.2-draft macht diese
+Lücken explizit (Counter-Counter-Counter-Counter-Review-2026-04-26
+Befund 6):
+
+| ADR | Was implementiert werden muss | Mögliche Form |
+|---|---|---|
+| ADR-0010 | Execution-Harness: Sandbox-Mounts, Egress-Proxy, Secret-Injection, Exit-Vertrag | Eigenes F-Feature, ggf. zerlegt in Sub-Features |
+| ADR-0010 / ADR-0015 | **Tool-Risk Pattern Matcher** zur Call-Zeit (First-Match-Glob, Catch-all, fail-closed Default) — Voraussetzung für sicheres `approval=never` | Eigenes F-Feature **oder** Bestandteil des ADR-0010-Harness-Features mit eigenen ACs |
+| ADR-0012 | HITL-Inbox: `ApprovalRequest`-Lifecycle, Push/Mail-Eskalation, `stale_waiting`/`timed_out_rejected`-Übergänge, Digest-Card-Kanal | Eigenes F-Feature |
+| ADR-0013 | Litestream-Restore-Drill, `needs_reconciliation`-Startup-Hook, v1b-Read-only-Bridge (optional) | Eigenes F-Feature, wenn quartalsweiser Drill produktiv wird |
+
+Diese Liste ist normativ für die Frage „kann v1a-Exit erreicht
+werden". Implementierungsstart kann aber sofort nach F0006-Doku
+beginnen — F0003/F0004/F0005/F0007 brauchen nur F0001 + F0008 + F0006
+als Doku-Voraussetzung, nicht die ADR-Implementierungs-Features.
 
 ## Offene Entscheidungen
 

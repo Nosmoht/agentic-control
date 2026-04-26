@@ -26,9 +26,17 @@ adr_refs: [ADR-0001]
 ---
 ```
 
-Keine weiteren Felder. `owner`, `created`, `updated`, `depends_on`,
-`signed_off_*`, `research_refs` fallen weg — sind aus Git-Log oder
-ADR/Spec-Refs ableitbar.
+Keine weiteren Felder außer einem optionalen `depends_on`-Array.
+`owner`, `created`, `updated`, `signed_off_*`, `research_refs` fallen
+weg — sind aus Git-Log oder ADR/Spec-Refs ableitbar.
+
+**`depends_on`** (optional) führt Feature-IDs auf, von denen ein
+Feature operational abhängt (z. B. ein Schema-Slice, der vor diesem
+Feature migrieren muss). Die Konvention wurde in V0.3.2-draft
+nachgezogen, weil F0006 und F0007 das Feld bereits nutzten und das
+Project-Plan-Dependency-Graph allein nicht reicht, wenn der
+Implementierer am Feature einsteigt. Der Master-Graph in
+`docs/plans/project-plan.md` bleibt die kohärente Gesamtsicht.
 
 ## Body (feste Reihenfolge)
 
@@ -78,7 +86,7 @@ Manuell gepflegt. Bei Änderung an Frontmatter bitte hier aktualisieren.
 |---|---|---|---|---|---|
 | F0001 | SQLite Schema for Core Objects | v0 | proposed | ADR-0001, ADR-0003 | §5.7 |
 | F0002 | `work add` / `work next` CLI | v0 | proposed | ADR-0001 | §5.3 |
-| F0003 | Cost-Aware Routing Stub | v1a | proposed | ADR-0014 | §5.3, §8.6 |
+| F0003 | Cost-Aware Routing Stub | v1a | proposed | ADR-0014, ADR-0016 | §5.3, §8.6 |
 | F0004 | Benchmark Awareness (Manual Pull) | v1a | proposed | ADR-0014 | §5.5, §8.6 |
 | F0005 | Benchmark-Curated Pin Refresh | v1a | proposed | ADR-0014, ADR-0011, ADR-0016 | §5.3, §6.2, §8.6 |
 | F0006 | Runtime Records SQLite Schema and Reconcile CLI | v1a | proposed | ADR-0011, ADR-0016 | §5.7, §6.2, §8.4, §10.4 |

@@ -42,7 +42,7 @@ Strukturierter Report mit den Abschnitten:
 
 - Keine Schreib- oder Edit-Operationen. Ausschließlich Read/Grep/Glob.
 - Keine Spec-Änderungen vorschlagen — nur Konsistenz berichten.
-- Keine Implementierungs- oder Code-Aufgaben — wir sind in V0.3.1-draft
+- Keine Implementierungs- oder Code-Aufgaben — wir sind in V0.3.2-draft
   ohne Code.
 
 ## Typische Aufrufe

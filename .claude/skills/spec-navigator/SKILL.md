@@ -20,7 +20,7 @@ CLAUDE.md-/Context-Bloat durch gezieltes Nachladen.
 
 - Repo-weite Suche ohne konkrete Zielsektion (dann normale Exploration).
 - Trivialfragen, die bereits aus AGENTS.md beantwortet sind.
-- Implementierungsarbeit (in V0.3.1-draft noch kein Code).
+- Implementierungsarbeit (in V0.3.2-draft noch kein Code).
 
 ## Navigations-Regeln
 

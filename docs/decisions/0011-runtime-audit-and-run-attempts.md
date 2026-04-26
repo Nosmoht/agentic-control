@@ -47,7 +47,7 @@ Gewählt: **Option 2** — Runtime Records als Technik-Querschnitt.
 | `ApprovalRequest` | SQLite-Tabelle | HITL-Gate-Instanz; Subject-Ref, Risiko-Klasse, gestellte Frage, Entscheidung, Entscheider, Timestamp |
 | `BudgetLedgerEntry` | SQLite-Tabelle + tägliches JSONL | Kosten pro Request/Task/Projekt-Tag/Global-Tag; Pre-Call-Projektion, Actual, Cache-Hit, Modell, RunAttempt-Ref |
 | `ToolCallRecord` | SQLite-Tabelle | Einzelner Tool-Call innerhalb einer RunAttempt; Tool, Input-Hash, Output-Ref, Duration, Exit, Idempotency-Key falls extern wirksam |
-| `PolicyDecision` | SQLite-Tabelle | Entscheidung einer Policy (Admission, Dispatch, Budget-Gate, HITL-Trigger); Subject-Ref, Policy-Name, Inputs, Output, Timestamp |
+| `PolicyDecision` | SQLite-Tabelle | Entscheidung einer Policy (Admission, Dispatch, Budget-Gate-Override, HITL-Trigger, **Tool-Risk-Match**); Subject-Ref, Policy-Tag, Inputs, Output, Timestamp. Für `tool_risk_match` (ADR-0015) trägt `output` zusätzlich `{matched_pattern, risk, approval, default_hit}` und `subject_ref` zeigt auf `tool_call_record:<id>` — F0007 liest diese Records als historische Match-Quelle (Counter-Counter-Counter-Counter-Review-2026-04-26 Befund 2). |
 | `SandboxViolation` | SQLite-Tabelle + Alert | Verweigerter Egress, Config-Write, cgroup-Limit; RunAttempt-Ref, Timestamp, Kategorie, Details |
 | `DispatchDecision` | SQLite-Tabelle | Adapter + Modell + Begründung (Pin vs. Default vs. Cost-Aware) pro RunAttempt; frozen; Evidence-Refs; Definition siehe ADR-0014 §Cost-Aware-Routing-Policy |
 

@@ -1,6 +1,6 @@
 ---
 title: Personal Agentic Control System — V1 Specification
-version: 0.3.1-draft
+version: 0.3.2-draft
 status: draft
 date: 2026-04-24
 template: arc42 v8.2
@@ -281,7 +281,7 @@ Separater Layer für Nachvollziehbarkeit und Retry-Sicherheit:
 | `ApprovalRequest` | HITL-Gate-Instanz | v1 |
 | `BudgetLedgerEntry` | Kosten-Ledger pro Request/Task/Projekt-Tag/Global-Tag | v1 |
 | `ToolCallRecord` | Einzelner Tool-Call mit optionalem Idempotency-Key | v1 |
-| `PolicyDecision` | Entscheidung einer Policy (Admission, Dispatch, Budget-Gate, HITL-Trigger) | v1 |
+| `PolicyDecision` | Entscheidung einer Policy (Admission, Dispatch, Budget-Gate-Override, HITL-Trigger, Tool-Risk-Match — Schema-Details siehe ADR-0011) | v1 |
 | `SandboxViolation` | Verweigerter Egress, Config-Write, cgroup-Limit | v1 |
 | `DispatchDecision` | Adapter + Modell + Begründung pro RunAttempt (frozen) | v1 |
 

@@ -83,9 +83,13 @@ zwischen F0001 (v0-Schema) und F0003/F0004/F0005.
 
 ## Acceptance Criteria
 
-1. Migration `0002_runtime_records.sql` läuft auf einer F0001-DB
-   ohne Fehler; `sqlite3 .schema` zeigt acht neue Tabellen mit den
-   Pflichtfeldern aus ADR-0011.
+1. Migration `0002_runtime_records.sql` läuft auf einer DB mit
+   erfolgreich ausgeführten F0001- **und** F0008-Migrationen ohne
+   Fehler; `sqlite3 .schema` zeigt acht neue Tabellen mit den
+   Pflichtfeldern aus ADR-0011. **Negative-Test:** `0002` gegen eine
+   reine F0001-DB (ohne F0008) bricht mit klarem Migrationsfehler
+   ab, weil der FK auf `run` nicht aufgelöst werden kann
+   (Counter-Counter-Counter-Counter-Review-2026-04-26 Befund 1).
 2. Foreign-Key-Constraints sind aktiv: `run_attempt` ohne
    existierenden `run_ref` schlägt fehl.
 3. `tool_call_record` hat zwei UNIQUE-Constraints: `(run_attempt_id,
@@ -128,7 +132,18 @@ zwischen F0001 (v0-Schema) und F0003/F0004/F0005.
     unterscheidet mindestens `admission`, `dispatch`,
     `budget_gate_override`, `hitl_trigger`, `tool_risk_match`
     (CHECK-Constraint). `runs inspect` listet `PolicyDecision`-Rows
-    nach `policy`-Tag gefiltert.
+    nach `policy`-Tag gefiltert. **Für `tool_risk_match`** (verwendet
+    von F0007 als historische Match-Quelle) ist zusätzlich gefordert:
+    - `subject_ref` zeigt auf `tool_call_record:<id>` (FK).
+    - `output`-JSON enthält die Pflichtfelder
+      `{matched_pattern: str, risk: <low|medium|high|irreversible>,
+      approval: <never|required|policy_gated>, default_hit: bool}`.
+    - `default_hit=true` bedeutet, dass kein gelisteter Pattern
+      gematcht hat und die `default`-Policy aus
+      `tool-risk-inventory.yaml` griff (ADR-0015).
+    Schema-Test: Insert eines `tool_risk_match`-Records ohne diese
+    Felder schlägt eine Schema-Validierung fehl
+    (Counter-Counter-Counter-Counter-Review-2026-04-26 Befund 2).
 13. **`SandboxViolation`-Insert:** Insert einer Violation mit
     Kategorie `egress_denied` und Detail-JSON erscheint in
     `runs inspect` und triggert einen Stub-Alert-Hook (zunächst

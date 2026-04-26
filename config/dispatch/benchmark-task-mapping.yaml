@@ -1,0 +1,43 @@
+# Benchmark-Task-Mapping
+#
+# Zuordnung von Work-Item-Task-Klassen zu Benchmark-Quellen. Wird vom
+# F0005-Pin-Refresh-Loop konsumiert: pro Pin wird der Score des
+# gepinnten Modells gegen das Top-Modell der zugeordneten Benchmark-
+# Klasse verglichen; Delta >= drift_threshold_pp -> candidate_pin_change-
+# Proposal.
+#
+# Schema:
+#   task_to_benchmark: { <task-class>: <benchmark-id> }
+#   drift_threshold_pp: int  # Prozentpunkte
+#
+# Pflege: bei neuen Benchmark-Quellen (F0004) oder neuen Task-Klassen.
+# Zugehörige Konzepte: ADR-0014, F0005, Spec §6.2 / §8.6, Plan-Appendix A.
+
+version: 1
+updated: 2026-04-26
+
+# Drift-Schwelle in Prozentpunkten zwischen pinned-Modell und Top-Modell
+# auf der zugeordneten Benchmark-Klasse.
+#
+# Eigenentscheidung in V0.2.4-draft, kein empirischer Anker. 3 pp ist
+# konservativer Startwert: groesser als typisches Benchmark-Run-Rauschen
+# (~1 pp), aber kleiner als das einzig belegte Inter-Modell-Delta
+# (Coding 7,6 pp Opus 4.7 vs Gemini 3.1 Pro). Bei zu vielen Wochen-
+# Vorschlaegen Schwelle erhoehen; bei verpasstem Modell-Arrival senken.
+drift_threshold_pp: 3
+
+# Task-Klasse -> Benchmark-Quelle. Die Task-Klasse ergibt sich aus
+# Work-Item-Type (Konvention: work_item_type matcht Praefix
+# <task-class>_*, z. B. coding_refactor -> coding).
+# Benchmark-Quellen muessen in F0004's konfigurierten Quellen existieren.
+task_to_benchmark:
+  coding: swe_bench_verified
+  reasoning: gpqa_diamond
+  general: arena_elo
+  math: aime_2025
+  long_context: livebench_long_context
+
+# Wenn task-class kein Mapping hat:
+# - F0005 erzeugt KEIN candidate_pin_change-Proposal fuer diese Klasse
+#   (Skip mit Warnung).
+# - Modell-Arrival-Proposals werden trotzdem erzeugt (nicht task-spezifisch).

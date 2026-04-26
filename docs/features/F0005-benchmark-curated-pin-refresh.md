@@ -34,8 +34,8 @@ weniger Fix-Runden bei besserer Erstwahl.
     vergleiche Benchmark-Score des gepinnten Modells gegen Top-Modell
     der zugeordneten Task-Klasse (siehe
     `config/dispatch/benchmark-task-mapping.yaml`). Wenn
-    `top_score - pinned_score ≥ drift_threshold_pp` (Default 3):
-    `candidate_pin_change`-Proposal.
+    `top_score - pinned_score ≥ drift_threshold_pp` (Default 3, siehe
+    Anmerkung unten): `candidate_pin_change`-Proposal.
   - Schreibt Proposals in `config/dispatch/pending-proposals.yaml`
     (Append-only, Expiry 14 Tage).
 - CLI-Befehl `agentctl dispatch review`:
@@ -61,6 +61,15 @@ weniger Fix-Runden bei besserer Erstwahl.
   math: aime_2025
   ```
 - Drift-Schwelle als Config-Wert in derselben Datei (Default 3 pp).
+
+> **Eigenentscheidung (V0.2.4-draft):** Die 3-pp-Default-Schwelle ist
+> ein konservativer Startwert ohne empirischen Anker. Begründung:
+> größer als typisches Benchmark-Run-Rauschen (~1 pp), kleiner als das
+> einzig belegte Inter-Modell-Delta (Coding 7,6 pp, Plan-Appendix A).
+> Konfigurierbar pro Repo. Erwartung: bei zu vielen Wochen-Vorschlägen
+> Schwelle erhöhen, bei verpasstem Modell-Arrival senken. Eventuell
+> spätere ADR, falls die Kalibrierung Komplexität bekommt
+> (Counter-Counter-Review-2026-04-26, neuer Befund 5).
 
 ## Out of Scope
 
@@ -99,7 +108,14 @@ weniger Fix-Runden bei besserer Erstwahl.
 8. Modell-Arrival-Proposal enthält einen Adapter-Vorschlag nach
    Namens-Prefix-Regel: `claude-*` → `claude-code`, `gpt-*`/`o-*` →
    `codex-cli`, `gemini-*` → `adapter: null` mit Warnung
-   („kein Adapter in v1").
+   („kein Adapter in v1"). **Eigenentscheidung (V0.2.4-draft) als
+   Übergangs-Heuristik**, bis ein Adapter-Discovery-Vertrag (z. B.
+   `AdapterDescriptor.supported_models[]` aus ADR-0014 oder ein
+   Inventory-Mapping-Schema) existiert; Prefix-Regel widerspricht der
+   ADR-0014-Aussage „der Orchestrator special-cased keinen Adapter
+   außerhalb einer `describe()`-Abfrage" und ist daher Stop-Gap, nicht
+   normative Zuordnung (Counter-Counter-Review-2026-04-26, neuer
+   Befund 6).
 9. Drift-Detection respektiert Benchmark-Freshness: Benchmarks älter
    als 60 Tage werden für Drift ignoriert (zu unsicheres Signal),
    eine Warnung wird angezeigt.

@@ -1,6 +1,6 @@
 ---
 title: Personal Agentic Control System — V1 Specification
-version: 0.3.0-draft
+version: 0.3.1-draft
 status: draft
 date: 2026-04-24
 template: arc42 v8.2
@@ -499,9 +499,10 @@ Vorschlag `claude-code`, ADR-0014):
 - **Pydantic AI** für alle nicht-Agent-LLM-Aufrufe (Intake-Klassifikation,
   Confidence-Schätzung im Dispatcher, Summarization).
 
-Adapter-spezifische Harness-Details leben in eigenen ADRs (geplant: 0016
-Claude-Code-Harness-Profile, 0017 Codex-CLI-Harness-Profile — anzulegen,
-sobald Implementierung beginnt).
+Adapter-spezifische Harness-Details leben in eigenen ADRs (geplant:
+0017 Claude-Code-Harness-Profile, 0018 Codex-CLI-Harness-Profile —
+anzulegen, sobald Implementierung beginnt; ADR-0016 ist bereits an den
+Config-Write-Vertrag vergeben).
 
 ### 8.6 Agent-Auswahl (Task-Dispatch)
 
@@ -715,12 +716,17 @@ Teil ist gleichzeitig verfügbar.
 **v1a — „Durable Single-Loop lokal"** (8–12 Wochen)
 - Was drin: `Run`, `Artifact`, `Evidence` als Objekte. DBOS durable, MVS-
   Sandbox (ADR-0010), Budget-Gate (ADR-0008), HITL-Inbox (ADR-0012), Peer-
-  Adapter-Dispatch im **`pinned`**-Modus (ADR-0014), manueller Benchmark-
-  Pull (F0004).
+  Adapter-Dispatch im **`pinned`**-Modus (ADR-0014), Config-Write-Vertrag
+  (ADR-0016), manueller Benchmark-Pull (F0004), Pin-Kuration (F0005),
+  Tool-Risk-Drift-Detection (F0007).
 - Was nicht drin: Portfolio-Dependencies, Standards-Promotion, Cloud.
 - Zweck: Work-Lifecycle automatisieren.
-- Feature-Files: F0003 (Routing-Stub), F0004 (Benchmark-Awareness), plus
-  später hinzukommende Feature-Files für ADRs 0010–0013.
+- Feature-Files: **F0008** (V1-Domain-Schema), **F0006** (Runtime-
+  Records + Reconcile-CLI), F0003 (Routing-Stub), F0004 (Benchmark-
+  Awareness), F0007 (Tool-Risk-Drift), F0005 (Pin-Refresh) — plus
+  später hinzukommende Feature-Files für ADRs 0010–0013 (Execution-
+  Harness inkl. Pattern-Matcher).
+- Reihenfolge: F0001 → F0008 → F0006 → [F0003, F0004, F0007] → F0005.
 
 **v1b — „Read-only Messenger-Bridge"** (optional)
 - Was drin: zweiter Prozess read-only.

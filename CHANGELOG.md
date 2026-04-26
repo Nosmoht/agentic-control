@@ -6,6 +6,77 @@ Versionen folgen [Semantic Versioning](https://semver.org/) für Specs
 (Major = Breaking Change im Datenmodell oder in Modul-Grenzen,
 Minor = additiv, Patch = Klarstellungen/Fixes).
 
+## [0.3.1-draft] — 2026-04-26
+
+Konsistenz-Patch nach viertem Codex-Follow-up-Review
+(`docs/reviews/2026-04-26-followup-review-3.md`). Adressiert die drei
+**Hoch**-Befunde an F0006 (fehlender Domain-Schema-Anker, ungleichmäßige
+ACs, falsche UNIQUE-Semantik) plus sieben mittlere Drift-Befunde an
+F0007/ADR-0016/Spec/Plan. Keine neuen Architekturentscheidungen — alle
+Änderungen sind Korrekturen an V0.3.0-Artefakten.
+
+### Added
+
+- **F0008 V1 Domain Schema (Run, Artifact, Evidence)** als eigener
+  Liefer-Slice (Stage v1a). Schließt die Lücke, dass F0006 einen FK
+  auf `run` voraussetzt, F0001 aber nur das v0-Schema liefert.
+  Plan-Reihenfolge ist jetzt F0001 → F0008 → F0006 → [F0003, F0004,
+  F0007] → F0005. Adressiert Counter-Counter-Counter-Review-Befund 1
+  (Hoch).
+
+### Changed
+
+- **F0006 Acceptance Criterion 3** korrigiert: `tool_call_record` hat
+  zwei UNIQUE-Constraints — `(run_attempt_id, tool_call_ordinal)` für
+  Reihenfolge und `(run_attempt_id, idempotency_key)` für die Pre-
+  Send-Check-Semantik aus ADR-0011. Die alte AC sicherte nur Ordinals
+  und unterlief den Idempotenzanker. Adressiert Befund 3 (Hoch).
+- **F0006 Scope** verweist explizit auf F0008 als FK-Anker-Voraussetzung;
+  `depends_on: [F0001, F0008]` in Frontmatter.
+- **F0006 Acceptance Criteria 11–13 ergänzt** für `DispatchDecision`
+  (post-gate-final, UNIQUE pro RunAttempt), `PolicyDecision`
+  (`policy`-Tag-Differenzierung mit fünf Klassen), `SandboxViolation`
+  (Insert + Stub-Alert-Hook). Damit decken die ACs jetzt alle acht
+  Runtime-Record-Typen ab. Adressiert Befund 2 (Hoch).
+- **F0007 Scope** umgestellt: liest primär
+  `PolicyDecision(tool_risk_match)`-Records aus F0006 (historische
+  Match-Entscheidung), Re-Match nur als Fallback für Alt-Daten. Damit
+  beseitigt F0007 zugleich seine Pattern-Matcher-Abhängigkeit (Out of
+  Scope umformuliert). Adressiert Befunde 4 (Mittel-Hoch) und 5
+  (Mittel).
+- **F0007 `tools propose`-Einfügeposition** spezifiziert: spezifische
+  Patterns vor Catch-all, neue Catch-alls am Ende, Dry-Run-Match
+  nach jedem Insert. Adressiert Befund 6 (Mittel).
+- **F0007 Acceptance Criterion 4** konkretisiert: Digest-Card-ID =
+  `sha256(period_start + sorted(unmatched_tool_names) +
+  threshold_kind)`; Mindest-Denominator ≥ 20 Tool-Calls für
+  Prozent-Schwelle. Adressiert Befund 10 (Niedrig-Mittel).
+- **F0007 Frontmatter `adr_refs`** ergänzt um ADR-0016 (vorher
+  fehlend, obwohl `tools propose` darüber schreibt). Index und
+  Project-Plan ziehen nach. `depends_on: [F0006]` ergänzt.
+  Adressiert Befund 8 (Mittel).
+- **F0003 Frontmatter `adr_refs`** ergänzt um ADR-0016; `dispatch
+  pin` Beschreibung referenziert den Schreibvertrag explizit.
+- **ADR-0016 Garantie 3 (Optimistic Conflict Check)** erweitert:
+  zusätzlich zum Versions-/Updated-Vergleich wird der Inhalts-Hash
+  (`sha256(file_content)`) als `before_hash` beim initialen Read
+  gespeichert und vor `rename` erneut geprüft. Manuelle Editor-Edits
+  ohne Versions-Bump werden damit zuverlässig als
+  `ConflictDetected` erkannt. Adressiert Befund 7 (Mittel).
+- **SPECIFICATION.md §8.5** ADR-Reservierung korrigiert: Harness-
+  Profile-ADRs sind jetzt 0017 / 0018 (ADR-0016 ist an Config-Write-
+  Vertrag vergeben).
+- **SPECIFICATION.md Appendix A v1a** erweitert: F0005, F0006, F0007,
+  F0008 und ADR-0016 jetzt namentlich im v1a-Block; explizite
+  Reihenfolge F0001 → F0008 → F0006 → [F0003, F0004, F0007] → F0005.
+  Adressiert Befund 9 (Mittel).
+- **SPECIFICATION.md Frontmatter** `version: 0.3.0-draft → 0.3.1-draft`.
+- **`docs/features/README.md` und `docs/plans/project-plan.md`**
+  Feature-Index und Dependency-Graph um F0008 erweitert; F0007
+  `adr_refs` aktualisiert; v1a-Pfad zeigt F0001 → F0008 → F0006 → ...
+- **AGENTS.md, README.md, spec-reviewer.md, spec-navigator/SKILL.md**
+  Stand auf V0.3.1-draft.
+
 ## [0.3.0-draft] — 2026-04-26
 
 Minor-Release (additiv). Adressiert Schicht B des Reaktions-Plans auf

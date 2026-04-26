@@ -1,6 +1,6 @@
 # Project Plan
 
-**Version:** 0.3.0-draft · **Stand:** 2026-04-26
+**Version:** 0.3.1-draft · **Stand:** 2026-04-26
 
 Dieser Plan ist die Eine-Seite-Sicht auf die Roadmap. Details leben in der
 Spec (`docs/spec/SPECIFICATION.md`), den ADRs (`docs/decisions/`), den
@@ -33,11 +33,12 @@ Substanz haben. Bis dahin genügt diese Tabelle.
 |---|---|---|---|---|---|---|
 | F0001 | SQLite Schema for Core Objects | v0 | proposed | ADR-0001, ADR-0003 | §5.7 | Ausgangspunkt v0 |
 | F0002 | `work add` / `work next` CLI | v0 | proposed | ADR-0001 | §5.3 | Einziger v0-Einstieg |
-| F0003 | Cost-Aware Routing Stub | v1a | proposed | ADR-0014 | §5.3, §8.6 | Minimal-Router, keine Kendall-τ-Mathematik |
+| F0003 | Cost-Aware Routing Stub | v1a | proposed | ADR-0014, ADR-0016 | §5.3, §8.6 | Minimal-Router; `dispatch pin` schreibt via ADR-0016 |
 | F0004 | Benchmark Awareness (Manual Pull) | v1a | proposed | ADR-0014 | §5.5, §8.6 | `agentctl benchmarks pull`; Awareness, kein Auto-Dispatch |
 | F0005 | Benchmark-Curated Pin Refresh | v1a | proposed | ADR-0014, ADR-0011, ADR-0016 | §5.3, §6.2, §8.6 | Wöchentlicher HITL-Kurations-Loop; Modell-Arrival + Pin-Drift |
-| F0006 | Runtime Records SQLite Schema and Reconcile CLI | v1a | proposed | ADR-0011, ADR-0016 | §5.7, §6.2, §8.4, §10.4 | Voraussetzung für F0003/F0004/F0005-Implementierung |
-| F0007 | Tool-Risk-Drift Detection | v1a | proposed | ADR-0015, ADR-0011 | §5.4, §8 | `agentctl tools audit` + Digest-Card |
+| F0006 | Runtime Records SQLite Schema and Reconcile CLI | v1a | proposed | ADR-0011, ADR-0016 | §5.7, §6.2, §8.4, §10.4 | Voraussetzung für F0003/F0004/F0005/F0007; baut auf F0008 auf |
+| F0007 | Tool-Risk-Drift Detection | v1a | proposed | ADR-0015, ADR-0011, ADR-0016 | §5.4, §8 | `agentctl tools audit` liest `PolicyDecision`-Historie + Digest-Card |
+| F0008 | V1 Domain Schema (Run, Artifact, Evidence) | v1a | proposed | ADR-0001, ADR-0003, ADR-0016 | §5.7 | Schema-Voraussetzung für F0006 (FK-Anker `run`) |
 
 Weitere Features entstehen mit ADR-Implementierung:
 - ADRs 0010–0013 bekommen Feature-Files, sobald die Implementierung in
@@ -48,7 +49,8 @@ Weitere Features entstehen mit ADR-Implementierung:
 ```mermaid
 graph LR
   F0001 --> F0002
-  F0001 --> F0006
+  F0001 --> F0008
+  F0008 --> F0006
   F0006 --> F0003
   F0006 --> F0004
   F0006 --> F0007
@@ -59,17 +61,19 @@ graph LR
 ```
 
 F0001 (v0-Schema) ist Voraussetzung für alles. F0002 (CLI) ist v0-Gate.
-F0006 (Runtime-Records-Schema + Reconcile-CLI) ist Voraussetzung für
-**alle** v1a-Slices, weil F0003/F0004/F0005/F0007 auf Runtime-Records
-und ADR-0016-Schreibvertrag aufbauen. F0005 ist der Kurations-Loop und
+F0008 (V1-Domain-Schema mit `Run`/`Artifact`/`Evidence`) ist die
+Schema-Voraussetzung für F0006 (FK-Anker `run`). F0006 (Runtime-
+Records-Schema + Reconcile-CLI) ist Voraussetzung für **alle**
+v1a-Slices, weil F0003/F0004/F0005/F0007 auf Runtime-Records und
+ADR-0016-Schreibvertrag aufbauen. F0005 ist der Kurations-Loop und
 hängt an F0003 + F0004. F0007 ist die Drift-Detection auf Tool-Risk-
-Inventar.
+Inventar (liest `PolicyDecision`-Historie aus F0006).
 
 ## Kritische Pfade
 
 - **v0-Pfad:** F0001 → F0002 → v0-Exit.
-- **v1a-Pfad:** F0001 → F0006 → [F0003, F0004, F0007] → F0005 →
-  Implementierung der ADRs 0010–0016 → v1a-Exit.
+- **v1a-Pfad:** F0001 → F0008 → F0006 → [F0003, F0004, F0007] →
+  F0005 → Implementierung der ADRs 0010–0016 → v1a-Exit.
 
 ## Offene Entscheidungen
 

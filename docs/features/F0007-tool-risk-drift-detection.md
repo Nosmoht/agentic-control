@@ -4,7 +4,8 @@ title: Tool-Risk-Drift Detection
 stage: v1a
 status: proposed
 spec_refs: [§5.4, §8]
-adr_refs: [ADR-0015, ADR-0011]
+adr_refs: [ADR-0015, ADR-0011, ADR-0016]
+depends_on: [F0006]
 ---
 
 # F0007 · Tool-Risk-Drift Detection
@@ -24,12 +25,18 @@ F0007 als kleines additives Feature vorgeschlagen.
 ## Scope
 
 - CLI-Befehl `agentctl tools audit [--since <date>] [--default-only]`:
-  - Liest `tool_call_record`-Rows (F0006) im angegebenen Zeitraum
-    (Default: letzte 14 Tage).
-  - Joint mit der Pattern-Matching-Engine (siehe Out of Scope) auf
-    den Treffer pro Tool-Call (`pattern` oder `default`).
-  - Gruppiert nach Tool-Pattern: Anzahl Calls, Anzahl Default-Hits,
-    Beispiel-Aufrufe.
+  - **Primäre Datenquelle:** `policy_decision`-Rows mit
+    `policy=tool_risk_match` (F0006), gefiltert auf den angegebenen
+    Zeitraum (Default: letzte 14 Tage). Damit liest F0007 die
+    **damals** getroffene Match-Entscheidung — nicht eine Re-
+    Klassifikation gegen das aktuelle Inventory (Counter-Counter-
+    Counter-Review-2026-04-26 Befund 4). `tool_call_record` liefert
+    den Tool-Namen und Aufrufdetails per FK.
+  - Gruppiert nach gematchtem Pattern: Anzahl Calls, Anzahl
+    Default-Hits, Beispiel-Aufrufe.
+  - **Fallback** für Alt-Daten ohne `PolicyDecision` (z. B. vor
+    F0006-Implementierung): Re-Match gegen aktuelles Inventory mit
+    expliziter Warnung „rekonstruiert, nicht historisch".
 - **Digest-Card-Generation** (ADR-0012):
   - Wenn Default-Hit-Anteil > Schwelle (Default 5 %) ODER mehr als
     drei verschiedene unbekannte Tool-Namen im Zeitraum → Digest-
@@ -44,6 +51,14 @@ F0007 als kleines additives Feature vorgeschlagen.
   - CLI-Befehl `agentctl tools propose <tool-name>` startet einen
     Editor-Workflow, der den Vorschlag in
     `tool-risk-inventory.yaml` einfügt (über ADR-0016-Vertrag).
+  - **Einfügepositions-Regel** (Counter-Counter-Counter-Review-
+    2026-04-26 Befund 6): Spezifische Patterns werden **vor** dem
+    nächsten Catch-all-Pattern derselben Familie eingefügt
+    (`gh_issue_reopen` vor `gh_*`). Neue Catch-alls (`*` am Ende,
+    `<prefix>_*`-Pattern) landen am Ende ihrer Familie. Nach jedem
+    `propose` läuft ein Dry-Run-Match gegen Fixture-Tool-Namen, der
+    bestätigt, dass das neue Pattern tatsächlich gewinnt; sonst
+    Abbruch mit Hinweis und Rollback der Änderung.
 - Drift-Schwelle als optional Config-Wert in `tool-risk-
   inventory.yaml.drift_threshold_pct` (Default 5 %, Eigenentscheidung).
 
@@ -52,10 +67,15 @@ F0007 als kleines additives Feature vorgeschlagen.
 - **Auto-Erweiterung** des Inventars — bleibt manuell, weil jede
   Klassifikation eine Sicherheits-Entscheidung ist (fail-closed
   bedeutet bewusstes Down-Klassifizieren).
-- **Pattern-Matching-Engine selbst** (Glob-Resolution, Erste-Match-
-  Logik) — eigenes Feature, das F0007 als Konsument benötigt; F0007
-  blockiert nicht auf seine Implementierung, kann mit Stub-Matcher
-  laufen.
+- **Pattern-Matching-Engine zur Call-Zeit** (Glob-Resolution, Erste-
+  Match-Logik im Orchestrator) — F0007 ist **nicht** auf den
+  Live-Matcher angewiesen, weil es `PolicyDecision(tool_risk_match)`-
+  Records aus F0006 liest. Der Live-Matcher wird im Rahmen der
+  Execution-Harness-Implementierung (ADR-0010) als eigenes Feature
+  geliefert (Counter-Counter-Counter-Review-2026-04-26 Befund 5).
+  Fallback-Re-Match (siehe Scope) nutzt eine kleine in-process
+  Glob-Implementierung — Test-Fixture-tauglich, nicht
+  produktionsbindend.
 - **Tool-Klassifikations-Vorschläge mit ML** (z. B. „dieses Tool
   sieht aus wie file_write") — v2-Kandidat, hier explizit
   ausgeschlossen.
@@ -73,8 +93,15 @@ F0007 als kleines additives Feature vorgeschlagen.
    vorgeschlagenem YAML-Snippet (`pattern: <name>, risk: high,
    approval: required`), Speichern schreibt über ADR-0016-Vertrag
    in `tool-risk-inventory.yaml` (Atomic, Lock, Audit-Event).
-4. Wiederholter `audit`-Lauf erzeugt **keine** doppelte Digest-Card,
-   wenn die letzte noch im Inbox ist (Idempotenz).
+4. **Digest-Card-Idempotenz** (Counter-Counter-Counter-Review-
+   2026-04-26 Befund 10): Card-ID wird deterministisch aus
+   `sha256(period_start + sorted(unmatched_tool_names) +
+   threshold_kind)` gebildet. Wiederholter `audit`-Lauf im selben
+   14-Tage-Fenster mit identischer unbekannter Tool-Menge erzeugt
+   **keine** zweite Card. Ändert sich die Tool-Menge, entsteht eine
+   neue Card mit neuer ID. Mindest-Denominator für die Prozent-
+   Schwelle: ≥ 20 Tool-Calls im Zeitraum, sonst greift nur die „mehr
+   als drei unbekannte Tool-Namen"-Regel.
 5. Drift-Schwelle ist über `drift_threshold_pct` konfigurierbar;
    Default 5 % wird bei nicht gesetztem Feld verwendet.
 6. `--default-only`-Flag filtert die Audit-Tabelle auf Default-Hits.

@@ -80,7 +80,9 @@ Manuell gepflegt. Bei Änderung an Frontmatter bitte hier aktualisieren.
 | F0002 | `work add` / `work next` CLI | v0 | proposed | ADR-0001 | §5.3 |
 | F0003 | Cost-Aware Routing Stub | v1a | proposed | ADR-0014 | §5.3, §8.6 |
 | F0004 | Benchmark Awareness (Manual Pull) | v1a | proposed | ADR-0014 | §5.5, §8.6 |
-| F0005 | Benchmark-Curated Pin Refresh | v1a | proposed | ADR-0014 | §5.3, §6.2, §8.6 |
+| F0005 | Benchmark-Curated Pin Refresh | v1a | proposed | ADR-0014, ADR-0011, ADR-0016 | §5.3, §6.2, §8.6 |
+| F0006 | Runtime Records SQLite Schema and Reconcile CLI | v1a | proposed | ADR-0011, ADR-0016 | §5.7, §6.2, §8.4, §10.4 |
+| F0007 | Tool-Risk-Drift Detection | v1a | proposed | ADR-0015, ADR-0011 | §5.4, §8 |
 
 ## Verweise
 

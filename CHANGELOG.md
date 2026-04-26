@@ -6,6 +6,73 @@ Versionen folgen [Semantic Versioning](https://semver.org/) für Specs
 (Major = Breaking Change im Datenmodell oder in Modul-Grenzen,
 Minor = additiv, Patch = Klarstellungen/Fixes).
 
+## [0.3.0-draft] — 2026-04-26
+
+Minor-Release (additiv). Adressiert Schicht B des Reaktions-Plans auf
+das dritte Codex-Follow-up-Review
+(`docs/reviews/2026-04-26-followup-review-2.md`): drei substantielle
+Erweiterungen, die Implementierbarkeit von v1a tatsächlich
+herstellen.
+
+### Added
+
+- **ADR-0016 Config Write Contract for Dispatch and Execution.** Vier
+  Garantien (Atomic Write, File-Lock, Optimistic Version Check, Audit
+  Event) für alle normativen YAML-Configs unter `config/dispatch/`
+  und `config/execution/`. Adressiert Counter-Counter-Review-Befund 3
+  (Hoch), schließt F0005-Schreibvertrag-Lücke und definiert den
+  Vertrag, den F0006/F0007 ebenfalls konsumieren.
+- **F0006 Runtime Records SQLite Schema and Reconcile CLI** (Stage
+  v1a). Liefert die acht Runtime-Record-Tabellen aus ADR-0011, JSONL-
+  Runlog/Budget-Ledger und `agentctl runs reconcile / runs inspect /
+  audit show`-CLI-Befehle. Voraussetzung für die Implementierung von
+  F0003/F0004/F0005/F0007. Adressiert Counter-Counter-Review-Sofort-
+  Empfehlung 1.
+- **F0007 Tool-Risk-Drift Detection** (Stage v1a). `agentctl tools
+  audit` liest `ToolCallRecord`-Rows, gruppiert default-Hits, erzeugt
+  Digest-Card mit Inventory-Erweiterungs-Vorschlägen. `agentctl tools
+  propose <name>` schreibt über ADR-0016-Vertrag in
+  `tool-risk-inventory.yaml`. Adressiert Counter-Counter-Review-
+  Befund 8.
+- **`config/execution/tool-risk-inventory.yaml` `drift_threshold_pct`-
+  Feld** (Default 5 %, Eigenentscheidung) für F0007.
+- **`config/dispatch/model-inventory.yaml` `rules.adapter_assignment_
+  rules`** als Pattern-Liste (`claude-* → claude-code`,
+  `gpt-*`/`o-* → codex-cli`, `gemini-* → null`, Catch-all → `null`)
+  für F0005 Modell-Arrival-Detection. Konsequenz: Orchestrator
+  special-cased weiterhin keinen Adapter (ADR-0014 Aufruf-Disziplin).
+
+### Changed
+
+- **ADR-0015 / `tool-risk-inventory.yaml`** spaltet das frühere breite
+  `shell_exec`-Pattern in vier disjunkte Sub-Pattern auf:
+  `shell_readonly` (low, never), `shell_worktree_write` (medium,
+  never), `shell_network` (high, required), `shell_dangerous`
+  (irreversible, required). Übergangsregel: unklare Shell-Befehle
+  klassifizieren Adapter als `shell_dangerous` (fail-closed innerhalb
+  der Shell-Klasse). Inventory `version: 1 → 2`. Adressiert
+  Counter-Counter-Review-Befund 7.
+- **F0005** wird auf den ADR-0016-Schreibvertrag umgestellt:
+  Acceptance Criterion 5 (`accept`) referenziert atomarer Rename,
+  File-Lock, Optimistic Version Check, AuditEvent mit Hashes;
+  Acceptance Criterion 8 (Modell-Arrival-Adapter-Zuordnung) liest aus
+  `model-inventory.yaml.rules.adapter_assignment_rules` statt
+  hardcodeter Prefix-Logik; Acceptance Criterion 10 verweist
+  pauschal auf ADR-0016 für alle drei Schreibziele.
+  `adr_refs` ergänzt um ADR-0011 und ADR-0016. Adressiert
+  Counter-Counter-Review-Befunde 3 + 6.
+- **`config/dispatch/model-inventory.yaml`** `version: 2 → 3`,
+  `updated: 2026-04-26`.
+- **`docs/features/README.md`, `docs/plans/project-plan.md`** Feature-
+  Index um F0006 und F0007 erweitert; Dependency-Graph zeigt F0006
+  als Voraussetzung für F0003/F0004/F0005/F0007; v1a-Pfad
+  aktualisiert auf F0001 → F0006 → [F0003, F0004, F0007] → F0005.
+- **SPECIFICATION.md §9** ADR-Tabelle: ADR-0016 ergänzt; ADR-0015-
+  Status-Note um „V0.3.0-draft `shell_*`-Splitting".
+- **SPECIFICATION.md Frontmatter** `version: 0.2.4-draft → 0.3.0-draft`.
+- **AGENTS.md, README.md, spec-reviewer.md, spec-navigator/SKILL.md**
+  Stand auf V0.3.0-draft.
+
 ## [0.2.4-draft] — 2026-04-26
 
 Patch-Release nach drittem Codex-Follow-up-Review

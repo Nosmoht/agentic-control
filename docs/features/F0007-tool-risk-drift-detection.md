@@ -94,14 +94,18 @@ F0007 als kleines additives Feature vorgeschlagen.
    approval: required`), Speichern schreibt über ADR-0016-Vertrag
    in `tool-risk-inventory.yaml` (Atomic, Lock, Audit-Event).
 4. **Digest-Card-Idempotenz** (Counter-Counter-Counter-Review-
-   2026-04-26 Befund 10): Card-ID wird deterministisch aus
-   `sha256(period_start + sorted(unmatched_tool_names) +
-   threshold_kind)` gebildet. Wiederholter `audit`-Lauf im selben
-   14-Tage-Fenster mit identischer unbekannter Tool-Menge erzeugt
-   **keine** zweite Card. Ändert sich die Tool-Menge, entsteht eine
-   neue Card mit neuer ID. Mindest-Denominator für die Prozent-
-   Schwelle: ≥ 20 Tool-Calls im Zeitraum, sonst greift nur die „mehr
-   als drei unbekannte Tool-Namen"-Regel.
+   2026-04-26 Befund 10, V0.3.2-Verfeinerung): Card-ID wird
+   deterministisch aus `sha256(period_start +
+   sorted(unmatched_tool_names) + threshold_kind)` gebildet, wobei
+   `threshold_kind ∈ {"default_hit_pct", "unknown_tool_count"}`
+   (CHECK-Constraint, exakt zwei Werte). Wiederholter `audit`-Lauf
+   im selben 14-Tage-Fenster mit identischer unbekannter Tool-Menge
+   und gleichem `threshold_kind` erzeugt **keine** zweite Card.
+   Ändert sich die Tool-Menge oder die ausgelöste Schwelle, entsteht
+   eine neue Card mit neuer ID. Mindest-Denominator für
+   `default_hit_pct`: ≥ 20 Tool-Calls im Zeitraum (sonst Skip);
+   `unknown_tool_count` greift ab > 3 unbekannten Tool-Namen
+   unabhängig von der Anzahl Calls.
 5. Drift-Schwelle ist über `drift_threshold_pct` konfigurierbar;
    Default 5 % wird bei nicht gesetztem Feld verwendet.
 6. `--default-only`-Flag filtert die Audit-Tabelle auf Default-Hits.

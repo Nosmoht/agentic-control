@@ -6,6 +6,38 @@ Versionen folgen [Semantic Versioning](https://semver.org/) für Specs
 (Major = Breaking Change im Datenmodell oder in Modul-Grenzen,
 Minor = additiv, Patch = Klarstellungen/Fixes).
 
+## [0.3.3-draft] — 2026-04-27
+
+Pre-Implementation-Decision-Patch. Zwei neue ADRs als `proposed`
+(noch keine Festlegung), die vor v0-Implementierungsstart entschieden
+werden müssen. Beide Entscheidungen waren bisher implizit oder
+fehlend; dieses Release macht sie explizit und liefert die
+Optionsräume zur Auswahl.
+
+### Added
+
+- **ADR-0017 — Implementation Language for v0/v1a** (`proposed`).
+  Vier Optionen mit ehrlichen Trade-offs: Python (LLM-SDK-Reichweite),
+  Go (Ops-Minimum + Single-Static-Binary), TypeScript (Mitte), Rust
+  (überdimensioniert). Empfehlung Python unter Vorbehalt der
+  Treiber-Priorisierung. Schließt die bisherige implizite
+  Python-Annahme aus F0002 und Research-Briefs als unbegründet.
+- **ADR-0018 — Schema-First with JSON Schema for Data Boundaries**
+  (`proposed`). Empfehlung JSON Schema Draft 2020-12 als kanonische
+  Form für 7 Runtime-Records (ADR-0011), 3 Domain-Objekte (F0008)
+  und 5 Konfig-YAMLs (ADR-0016). Sprach-neutral; Code-Gen pro
+  Sprache. Protobuf und OpenAPI explizit defer bis v2+ (keine
+  RPC-/HTTP-Boundary in v1a). Validierung wird in den
+  ADR-0016-Write-Pfad eingehängt vor Lock und Conflict-Check.
+
+### Changed
+
+- **`docs/spec/SPECIFICATION.md` §9 ADR-Tabelle** um die zwei neuen
+  Einträge erweitert; beide tragen Status `proposed`.
+- **`docs/plans/project-plan.md` Open Decisions** um die zwei neuen
+  Entscheidungspunkte (5: Sprache, 6: Schema-First-Werkzeug)
+  erweitert. Beide blockieren den v0-Implementierungsstart.
+
 ## [0.3.2-draft] — 2026-04-26
 
 Konsistenz-Patch nach **fünftem** Codex-Follow-up-Review

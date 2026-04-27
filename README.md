@@ -5,7 +5,7 @@ persönliches, agenten-gestütztes Multi-Projekt-Steuerungssystem. Primärnutzer
 sind der Repo-Besitzer sowie **Claude Code** und **Codex CLI**, die auf
 Basis dieser Dokumentation Implementierungsarbeit ausführen sollen.
 
-Stand: **V0.3.2-draft** (2026-04-26). Noch kein Code; das Repo enthält
+Stand: **V0.3.3-draft** (2026-04-27). Noch kein Code; das Repo enthält
 ausschließlich Spezifikation und Forschung.
 
 ## Einstiegspfad

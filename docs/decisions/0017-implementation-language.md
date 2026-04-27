@@ -1,8 +1,9 @@
 # ADR-0017: Implementierungssprache für v0/v1a
 
-* Status: proposed
+* Status: accepted
 * Date: 2026-04-27
-* Context: `docs/spec/SPECIFICATION.md §7`, ADR-0002, ADR-0013
+* Context: `docs/spec/SPECIFICATION.md §7`, ADR-0002, ADR-0003, ADR-0004,
+  ADR-0013
 
 ## Kontext und Problemstellung
 
@@ -112,64 +113,116 @@ n=1-Proportionalität):
 - Compile-Zeiten merkbar; Inkrementelle Entwicklung langsamer.
 - Für n=1 Doku-First-System mit hoher Iteration nicht proportional.
 
-## Empfehlung (nicht Entscheidung)
+## Entscheidung
 
-**Python (Option 1)** als Default-Empfehlung — aber mit aufrichtigem
-Caveat:
+Gewählt: **Option 1 — Python (mit `uv` + Pydantic AI)**.
 
-- **Wenn** „Operations-Aufwand minimieren" der dominante Treiber ist
-  (Litestream-Restore-Drill quartalsweise, Kein-venv-Wunsch,
-  Single-Binary-Distribution), **dann ist Go (Option 2) die bessere
-  Wahl** — Pydantic AI lohnt den Restore-Schmerz nicht.
-- **Wenn** „LLM-/Agent-SDK-Reichweite" der dominante Treiber ist
-  (Pydantic AI, Eval-Stack, schnelles Erkunden neuer Frameworks),
-  **dann ist Python richtig**.
-- TypeScript ist die ehrliche Mitte, scheitert aber am
-  Pydantic-AI-Äquivalent.
-- Rust ist für dieses Stadium überdimensioniert.
+Die ursprüngliche Fassung dieses ADR (V0.3.3-draft, `proposed`)
+empfahl Python „unter Vorbehalt der Treiber-Priorisierung" und
+benannte Go als gleichwertige Alternative bei Ops-Minimum-Dominanz.
+Die empirische Verifikation am 2026-04-27 hat diese Symmetrie
+aufgelöst: **Go bricht strukturell mit drei accepted ADRs**, während
+Python nur Trade-offs einkauft, die mitigierbar sind.
 
-Die Empfehlung Python steht unter dem Vorbehalt, dass der Nutzer „LLM-
-SDK-Reichweite" über „Ops-Minimum" priorisiert. Wird die Priorität
-umgekehrt, wechselt die Empfehlung auf Go.
+### Strukturelle Befunde (verifiziert 2026-04-27)
 
-## Konsequenzen (für die ausgewählte Option)
+1. **DBOS Go-SDK ist Postgres-only.** `dbos-inc/dbos-transact-golang`
+   v0.13.0 (2026-04-22) dokumentiert ausschließlich Postgres als
+   Backend; SQLite ist im Go-Pfad nicht unterstützt. Das **kollidiert
+   mit ADR-0003** (SQLite + Litestream als V1-Substrat). Eine
+   Go-Wahl würde ADR-0003 brechen oder v1a sofort auf Postgres
+   zwingen — letzteres widerspricht ADR-0013 (Operations-Minimum).
+2. **Kein Pydantic-AI-Äquivalent in Go.** Nähere Kandidaten
+   (`instructor-go`, `go-llms`, `langchaingo`, `eino`, `genkit-go`)
+   liefern Teilfunktionen, aber keine Kombination aus Schema-Validation
+   + Tool-Orchestration + Multi-Provider + HITL-Primitiven in einem
+   Paket. **Verletzt ADR-0004** im Kern.
+3. **Eval-/Telemetrie-Stack ist Python-first.** Arize Phoenix und
+   Pydantic Logfire haben **kein** Go-SDK — Go bekommt nur
+   OTLP-Raw-Export. OpenLLMetry-Go ist explizit „early-alpha,
+   manual logging". Reduziert die Beobachtbarkeit für n=1.
+4. **`uv sync` ist im Restore-Budget.** Cold-Restore dauert 5–10 s,
+   ~180 Pakete < 60 s; Lockfile-Drift wirft `uv sync` mit Fehler ab,
+   statt zu mutieren — passt zur quartalsweisen Restore-Drill-
+   Disziplin (§10.4).
 
-**Wenn Python**
-- v0-Skelett mit `uv` + `pyproject.toml`; CLI via `typer` oder `click`.
-- DBOS via `dbos-py`. Pydantic-Models als Source-of-Truth für
-  JSON-Schemas (ADR-0018).
-- Restore-Drill (§10.4) muss `uv sync` als Schritt enthalten und
-  zeitlich messen.
-- Sandbox-Profil enthält `python3` + `uv`-Cache.
+### Zusammenfassung
 
-**Wenn Go**
-- v0-Skelett mit `go.mod`; CLI via `cobra` oder `urfave/cli`.
-- DBOS Go-SDK; Schema-Validierung manuell oder via `go-jsonschema`.
-- Restore-Drill = Binary-Copy + DB-Restore; einfacher als Python.
-- Eigenes Glue-Layer für Pydantic-AI-Funktionalität nötig.
+- Go bricht ADR-0003 (SQLite), ADR-0004 (Pydantic AI) und reduziert
+  die Beobachtbarkeit. Drei ADR-Brüche, kein einziges Mitigations-
+  Pfad, der ohne Stack-Re-Design auskäme.
+- TypeScript bleibt strukturell zulässig (DBOS-TS first-class), hat
+  aber kein Pydantic-AI-Äquivalent (Vercel AI SDK ≠ Pydantic AI für
+  Daemon-Workloads); doppeltes Tooling, falls Eval-Stack
+  hinzukommt.
+- Rust bleibt überdimensioniert (kein DBOS-Rust-Binding).
 
-**Wenn TypeScript**
-- v0-Skelett mit Bun oder Deno; CLI via `commander` oder `cliffy`.
-- DBOS TS-SDK; Schema via `zod` oder `effect/Schema`.
-- Restore-Drill = Compiled-Binary, vergleichbar Go.
-- Pydantic-AI-Funktionalität via Vercel AI SDK + eigene Glue-Layer.
+Damit ist die Wahl strukturell determiniert — nicht eine Treiber-
+Abwägung, sondern eine ADR-Konsistenz-Frage.
 
-**Wenn Rust** — siehe Contra; nicht empfohlen.
+### Anerkanntes Risiko und Mitigation
+
+Die schärfste Schwachstelle der Python-Wahl ist **transitive-
+Dependency-Rot über 12–24 Monate** für n=1 ohne CI-Babysitter
+(Pydantic-Core-/cryptography-ABI-Drift, Wheel-Inkompatibilitäten).
+Mitigation in der Spec verankert:
+
+- `uv.lock` als hard-frozen Snapshot pro Release (kein
+  „lockfile drift" beim Restore).
+- Quartalsweiser Restore-Drill (§10.4) **enthält Test-Boot** auf
+  frischem System, nicht nur DB-Restore. Schlägt der Boot fehl, ist
+  das ein erkannter Befund, nicht stiller Zerfall.
+- Python ≥ 3.13 als Mindestversion; `uv python pin 3.13.x`.
+- Mindestens jährliches Lockfile-Refresh als geplante
+  Wartungsaufgabe (kein Drift, sondern bewusste Bewegung).
+- Keine Pre-Release-Pakete in `requirements`; nur stabile Tags.
+
+## Konsequenzen
+
+**Positiv**
+- ADR-0002 (DBOS), ADR-0003 (SQLite + Litestream), ADR-0004 (Pydantic
+  AI), ADR-0013 (Operations-Minimum lokal-only) bleiben konsistent.
+- Pydantic-Models werden Single-Source für Daten-Verträge — siehe
+  ADR-0018 für die abgeleitete Schema-First-Strategie.
+- Eval-/Telemetrie-Stack (Phoenix, Logfire, OpenLLMetry) ist nativ.
+- `uv` löst die historische venv-/Lock-Disziplin-Schwäche.
+
+**Negativ**
+- Kein Single-Static-Binary; Restore = Python-Toolchain + `uv sync`.
+  Akzeptabel im quartalsweisen Drill-Budget, aber nicht in derselben
+  Klasse wie Go.
+- Cold-Start ~150–300 ms für `agentctl`-Aufrufe (für Daemon-
+  Workloads vernachlässigbar, für Subkommandos spürbar).
+- Transitive-Dependency-Surface groß; Mitigation siehe oben.
+- Sandbox-Profil enthält `python3` + `uv`-Cache als Trust-Set —
+  größer als ein statisches Go-Binary.
+
+**Neutral**
+- v0-Skelett: `pyproject.toml` + `uv`; CLI via `typer` (oder `click`);
+  DBOS via `dbos-py`.
+- Sandbox-Profile (ADR-0006 Schicht 5) müssen Python-Interpreter
+  whitelisten — bekanntes Muster, kein neues Risiko.
 
 ### Reversibilität
 
 Die Wahl ist nach ~1 KLOC Code praktisch irreversibel. ADR-0018
-(Schema-First) reduziert die Bindungstiefe für **Datentypen**, nicht
-für Logik. DBOS-Workflow-Definitionen sind sprach-spezifisch.
+reduziert die Bindungstiefe für **Datentypen** (Pydantic ↔ JSON
+Schema), nicht für Logik. DBOS-Workflow-Definitionen, Adapter-
+Steuerung und CLI-Implementierung bleiben sprach-gebunden.
 
 ## Follow-ups
 
-- Sobald die Sprache gewählt ist: dieses ADR auf `accepted` setzen,
-  Datum aktualisieren, Spec §7 um „Implementierung in {Sprache}"
-  ergänzen.
-- F0001-Acceptance-Kriterien um sprachspezifische Build-/Test-Schritte
-  ergänzen.
-- ADR-0018 (Schema-First) abhängig: Tooling-Auswahl wird klarer.
+- Spec §7 (Verteilungssicht) um „Implementierung in Python ≥ 3.13
+  mit `uv`" ergänzen — eigenes V0.3.4-Patch oder mit dem
+  v0-Implementierungsstart-Patch.
+- F0001-Acceptance-Kriterien um Build-/Test-Schritte (`uv sync`,
+  `uv run pytest`) ergänzen, sobald die Implementierung beginnt.
+- §10.4 (Restore-Drill) um Test-Boot-Schritt erweitern (eigene
+  Akzeptanzkriterium-Zeile, nicht nur Litestream-Restore).
+- ADR-0018 verfolgt Pydantic-Models als kanonische Form mit
+  JSON-Schema-Export — Tooling ist damit fixiert
+  (`datamodel-code-generator` entfällt; `model_json_schema()` ist
+  der Pfad).
 
 ## Referenzen
 

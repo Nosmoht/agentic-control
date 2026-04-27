@@ -1,8 +1,9 @@
 # ADR-0018: Schema-First mit JSON Schema für Daten-Boundaries
 
-* Status: proposed
+* Status: accepted
 * Date: 2026-04-27
-* Context: `docs/spec/SPECIFICATION.md §5.7`, ADR-0011, ADR-0016, F0008
+* Context: `docs/spec/SPECIFICATION.md §5.7`, ADR-0011, ADR-0016,
+  ADR-0017, F0008
 
 ## Kontext und Problemstellung
 
@@ -128,53 +129,98 @@ sondern „mit welchem Werkzeug und an welchen Boundaries".
 - Erst sinnvoll, wenn `agentctl` über Netz auf Daemon zugreift oder
   Audit-Export für Drittsysteme exponiert wird.
 
-## Empfehlung (nicht Entscheidung)
+## Entscheidung
 
-**Option 3 — JSON Schema (Draft 2020-12) als kanonische Form**, in
-Kombination mit:
+Gewählt: **Option 2 — Pydantic-Models als kanonische Single-Source,
+JSON Schema als abgeleitetes Export-Artefakt** (nicht Option 3 wie in
+der `proposed`-Fassung empfohlen).
 
-- **Code-Gen-Pfad ist sprach-abhängig** und wird in ADR-0017 final
-  festgelegt:
-  - Python: `datamodel-code-generator` → Pydantic-Models.
-  - Go: `go-jsonschema` → Structs.
-  - TS: `json-schema-to-zod` → Zod-Schemas.
-- **Doku-Gen optional** (z. B. `json-schema-for-humans`); Markdown-
-  Tabellen in Spec/ADRs werden mittelfristig aus den Schemas
-  generiert oder per Convention synchron gehalten.
-- **Protobuf/OpenAPI explizit defer bis v2+.** Wenn Messenger-Bridge
-  oder Daemon-API entstehen, kommt ein Folge-ADR, das die
-  v1a-JSON-Schemas in `.proto` / OpenAPI-3.1-Components hebt — das ist
-  syntaktische Migration, kein Re-Design.
+Die ursprüngliche Fassung dieses ADR (V0.3.3-draft, `proposed`)
+hatte Option 3 (Standalone-JSON-Schema-Files) empfohlen, mit dem
+Argument der Sprach-Neutralität. Mit ADR-0017 fixiert auf Python ist
+dieses Argument schwächer geworden — und die adversarielle Review hat
+einen realen Failure-Mode benannt: **15 Standalone-Schema-Files
+neben dem Code produzieren doppelte Drift**, weil weder Prosa noch
+JSON-Files normativ sind und beide gleich schnell veralten.
 
-### Konkrete Schema-Inventur (v0 + v1a Scope)
+### Gewähltes Muster
 
-Zu schreibende Schemas im `schemas/`-Verzeichnis:
+- **Pydantic-Models** in `src/<package>/contracts/` sind die
+  **einzige Quelle** der Daten-Verträge.
+- `model_json_schema()` exportiert bei Build oder Pre-Commit nach
+  `schemas/`. Diese Files sind Build-Artefakte, kein handgepflegter
+  Bestand — `schemas/` wird im Repo gehalten, damit Reviewer und
+  Tooling (z. B. YAML-LSP für Konfig-Editing) sie sehen, aber per
+  Convention nicht von Hand editiert.
+- **ADR-0016 Config Write Contract** lädt das exportierte JSON-Schema
+  für jede Konfig-YAML und validiert vor `acquire_lock`. Das
+  geforderte Strukturkontrakt-Verhalten ist damit erfüllt, ohne dass
+  zwei Quellen synchron gehalten werden müssten.
+- **Markdown-Tabellen in Spec/ADRs** werden mittelfristig aus den
+  Pydantic-Models per Doku-Gen aktualisiert — nicht handgepflegt.
+  Bis dahin trägt der Pydantic-Model den normativen Vertrag und die
+  Tabelle ist informativ.
+- **Protobuf/OpenAPI bleiben defer bis v2+.** OpenAPI 3.1 nutzt JSON
+  Schema 2020-12; das Export-Artefakt ist also forward-kompatibel zur
+  späteren HTTP-Boundary. Protobuf-Migration bei v2+-RPC-Bedarf ist
+  syntaktisch lokal aus den exportierten Schemas.
 
-| Schema | Quelle | Validierung |
-|---|---|---|
-| `runtime-records/run-attempt.json` | ADR-0011 | DB-Insert |
-| `runtime-records/audit-event.json` | ADR-0011 | DB-Insert |
-| `runtime-records/approval-request.json` | ADR-0011 | DB-Insert |
-| `runtime-records/budget-ledger-entry.json` | ADR-0011 | DB-Insert |
-| `runtime-records/tool-call-record.json` | ADR-0011 | DB-Insert |
-| `runtime-records/policy-decision.json` | ADR-0011, F0007 | DB-Insert |
-| `runtime-records/sandbox-violation.json` | ADR-0011 | DB-Insert |
-| `domain/run.json` | F0008 | DB-Insert |
-| `domain/artifact.json` | F0008 | DB-Insert |
-| `domain/evidence.json` | F0008 | DB-Insert |
-| `config/model-inventory.json` | ADR-0014, F0005 | ADR-0016 Write |
-| `config/routing-pins.json` | ADR-0014 | ADR-0016 Write |
-| `config/tool-risk-inventory.json` | ADR-0015, F0007 | ADR-0016 Write |
-| `config/benchmark-task-mapping.json` | F0005 | ADR-0016 Write |
-| `config/dispatch-defaults.json` | ADR-0014 | ADR-0016 Write |
+### Warum nicht Option 3 (Standalone JSON Schema first)
 
-(15 Schemas; Spec-Kernobjekte aus §5.7 sind Untermenge der
-Domain-/Runtime-Records.)
+- Sprach-Neutralität ist ab ADR-0017 (Python fixiert) keine offene
+  Anforderung mehr.
+- Standalone-Schema-Files vor Code-Zeile 1 erzeugen Pflege-Last für
+  einen Vertrag, der noch keinen Konsumenten hat.
+- Pydantic 2 erzeugt JSON Schema Draft 2020-12 nativ — der erwartete
+  Code-Gen-Schritt (`datamodel-code-generator`) entfällt.
+- Single-Source vermeidet die „Markdown vs. JSON Schema vs.
+  Pydantic"-Drei-Quellen-Drift, die der Adversarial-Review als
+  konkretes Failure-Pattern für n=1-Doku-First-Setups benannt hat.
+
+### Warum nicht Option 1 (Status quo, nur Markdown)
+
+- ADR-0016 Write Contract bekommt ohne maschinenlesbares Schema
+  keinen Strukturkontrakt; das ist ein konkreter Lücken-Befund aus
+  ADR-0016, der nicht offen bleiben darf.
+- Drift wird unsichtbar; ADR-0011-Idempotenz-Disziplin verlangt
+  hartes Insert-Validation.
+
+### Konkrete Vertrags-Inventur (v0 + v1a Scope)
+
+Zu schreibende Pydantic-Models in `src/<package>/contracts/` mit
+JSON-Schema-Export nach `schemas/`:
+
+| Pydantic-Model | Export-Pfad | Quelle | Validierungs-Punkt |
+|---|---|---|---|
+| `RunAttempt` | `schemas/runtime-records/run-attempt.json` | ADR-0011 | DB-Insert |
+| `AuditEvent` | `schemas/runtime-records/audit-event.json` | ADR-0011 | DB-Insert |
+| `ApprovalRequest` | `schemas/runtime-records/approval-request.json` | ADR-0011 | DB-Insert |
+| `BudgetLedgerEntry` | `schemas/runtime-records/budget-ledger-entry.json` | ADR-0011 | DB-Insert |
+| `ToolCallRecord` | `schemas/runtime-records/tool-call-record.json` | ADR-0011 | DB-Insert |
+| `PolicyDecision` | `schemas/runtime-records/policy-decision.json` | ADR-0011, F0007 | DB-Insert |
+| `SandboxViolation` | `schemas/runtime-records/sandbox-violation.json` | ADR-0011 | DB-Insert |
+| `Run` | `schemas/domain/run.json` | F0008 | DB-Insert |
+| `Artifact` | `schemas/domain/artifact.json` | F0008 | DB-Insert |
+| `Evidence` | `schemas/domain/evidence.json` | F0008 | DB-Insert |
+| `ModelInventory` | `schemas/config/model-inventory.json` | ADR-0014, F0005 | ADR-0016 Write |
+| `RoutingPins` | `schemas/config/routing-pins.json` | ADR-0014 | ADR-0016 Write |
+| `ToolRiskInventory` | `schemas/config/tool-risk-inventory.json` | ADR-0015, F0007 | ADR-0016 Write |
+| `BenchmarkTaskMapping` | `schemas/config/benchmark-task-mapping.json` | F0005 | ADR-0016 Write |
+| `DispatchDefaults` | `schemas/config/dispatch-defaults.json` | ADR-0014 | ADR-0016 Write |
+
+(15 Modelle; Spec-Kernobjekte aus §5.7 sind Untermenge der
+Domain-/Runtime-Records. Die Pydantic-Models sind die Quelle, die
+JSON-Schema-Files sind das Export-Artefakt.)
 
 ### Layout
 
 ```
-schemas/
+src/<package>/contracts/
+├── runtime_records.py        # 7 Models
+├── domain.py                 # 3 Models
+└── config.py                 # 5 Models
+
+schemas/                      # exportiert via `model_json_schema()`
 ├── runtime-records/
 │   ├── run-attempt.json
 │   ├── audit-event.json
@@ -189,9 +235,15 @@ schemas/
     └── …
 ```
 
-`$schema`-Header verweist auf JSON Schema Draft 2020-12. `$id` ist
-ein lokaler Pfad (`https://agentic-control.local/schemas/…`), kein
-Internet-URL.
+`$schema`-Header verweist auf JSON Schema Draft 2020-12 (Pydantic 2
+Default). `$id` ist ein lokaler Pfad
+(`https://agentic-control.local/schemas/…`), kein Internet-URL.
+
+Export erfolgt automatisiert per `agentctl schemas export` (oder
+äquivalentem `make schemas`-Target). Pre-Commit-Hook prüft, dass
+`schemas/` im Sync zu `src/<package>/contracts/` ist (nicht bei
+`docs-only`-Phase, wo es noch keinen Code gibt — eingeführt mit dem
+v0-Implementierungsstart).
 
 ### Validierungs-Punkte
 
@@ -245,15 +297,17 @@ zurückgewiesen, ohne Lock-Kosten.
 
 ## Follow-ups
 
-- Wenn ADR-0017 entschieden ist: passenden Code-Gen-Pfad als Build-
-  Schritt verdrahten.
-- F0006 Acceptance-Kriterien um Schema-Validation pro Runtime-Record
-  ergänzen.
-- F0005, F0007 explizit auf die jeweiligen Konfig-Schemas verweisen.
-- Mittelfrist: Markdown-Tabellen aus Schemas generieren (eigenes
-  Feature-File, nicht Blocker).
+- F0006 Acceptance-Kriterien um Pydantic-Validation pro Runtime-Record
+  ergänzen, sobald der v0-Implementierungsstart erfolgt.
+- F0005, F0007 explizit auf die jeweiligen Pydantic-Models und
+  exportierten JSON-Schemas verweisen.
+- Eigenes Feature-File für `agentctl schemas export` und
+  Pre-Commit-Hook (Schema-Sync-Check), wenn der Code-Pfad steht.
+- Mittelfrist: Markdown-Tabellen aus den Pydantic-Models generieren
+  (eigenes Feature-File, nicht Blocker).
 - v2+: ADR „RPC-Boundary auf Protobuf" oder „HTTP-Boundary auf
-  OpenAPI 3.1" — beide bauen auf den hier festgelegten Schemas auf.
+  OpenAPI 3.1" — beide bauen auf den hier exportierten JSON-Schemas
+  auf, nicht auf Pydantic-Models direkt.
 
 ## Referenzen
 

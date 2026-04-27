@@ -1,6 +1,6 @@
 # Project Plan
 
-**Version:** 0.3.2-draft · **Stand:** 2026-04-26
+**Version:** 0.3.3-draft · **Stand:** 2026-04-27
 
 Dieser Plan ist die Eine-Seite-Sicht auf die Roadmap. Details leben in der
 Spec (`docs/spec/SPECIFICATION.md`), den ADRs (`docs/decisions/`), den
@@ -114,6 +114,18 @@ anpassen.
    die frühere „5+ Pins oder 4 Wochen"-Auto-Aktivierung wurde
    gestrichen, weil empirisch nicht gedeckt). `pinned` mit
    F0005-Pin-Kuration ist eine legitime Endstufe.
+5. **Implementierungssprache (ADR-0017, `proposed`).** Optionen:
+   Python (LLM-SDK-Reichweite-Treiber), Go (Ops-Minimum-Treiber),
+   TypeScript (Mitte), Rust (überdimensioniert). Empfehlung im ADR
+   ist Python unter Vorbehalt der Treiber-Priorisierung; Wahl ist
+   Voraussetzung für v0-Implementierungsstart und für ADR-0018
+   Code-Gen-Pfad.
+6. **Schema-First-Werkzeug (ADR-0018, `proposed`).** Empfehlung
+   JSON Schema Draft 2020-12 als sprach-neutrale kanonische Form,
+   Code-Gen sprach-abhängig (siehe ADR-0017), Protobuf/OpenAPI
+   bewusst defer bis v2+. Wahl betrifft 15 Schemas
+   (7 Runtime-Records + 3 Domain-Objekte + 5 Konfig-YAMLs) und ist
+   Voraussetzung für hart-validierten ADR-0016-Write-Pfad.
 
 ## Anti-Ziele (bewusst NICHT in diesem Plan)
 

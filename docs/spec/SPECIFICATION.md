@@ -1,6 +1,6 @@
 ---
 title: Personal Agentic Control System — V1 Specification
-version: 0.3.2-draft
+version: 0.3.3-draft
 status: draft
 date: 2026-04-24
 template: arc42 v8.2
@@ -586,6 +586,8 @@ Einstiegs-Index der MADRs in [`../decisions/`](../decisions/):
 | 0014 | Peer Adapters and Cost-Aware Routing | accepted (amends ADR-0004; cost-aware-Auto-Aktivierung in V0.2.3-draft gestrichen) |
 | 0015 | Tool-Risk-Inventory and Approval Routing | accepted (V0.3.0-draft `shell_*`-Splitting) |
 | 0016 | Config Write Contract for Dispatch and Execution | accepted |
+| 0017 | Implementation Language for v0/v1a | proposed |
+| 0018 | Schema-First with JSON Schema for Data Boundaries | proposed |
 
 ## 10 · Qualitätsanforderungen
 

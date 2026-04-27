@@ -1,6 +1,6 @@
 ---
 title: Personal Agentic Control System — V1 Specification
-version: 0.3.3-draft
+version: 0.3.4-draft
 status: draft
 date: 2026-04-24
 template: arc42 v8.2
@@ -389,7 +389,13 @@ V1 unterstützt drei Deployment-Modi (ADR-0013):
 - DBOS in-process. Keine zweite Schreibrolle.
 - Claude Code + Codex CLI als lokale Subprozesse.
 - Control Surface: CLI (`agentctl`).
-- Backup: Litestream continuous. Restore-Drill quartalsweise (§10).
+- Backup: Litestream continuous. Restore-Drill quartalsweise (§10),
+  inkl. Test-Boot des Daemons auf frischem System (ADR-0017
+  Risk-Mitigation).
+- **Implementierung:** Python ≥ 3.13 mit `uv` als Paketmanager
+  (ADR-0017). DBOS via `dbos-py`, LLM-Wrapper via Pydantic AI
+  (ADR-0004), Daten-Verträge als Pydantic-Models mit JSON-Schema-
+  Export (ADR-0018).
 - **Dies ist der Default für v1.**
 
 ### 7.2 v1b — Lokal + read-only Bridge (optional)
@@ -586,8 +592,8 @@ Einstiegs-Index der MADRs in [`../decisions/`](../decisions/):
 | 0014 | Peer Adapters and Cost-Aware Routing | accepted (amends ADR-0004; cost-aware-Auto-Aktivierung in V0.2.3-draft gestrichen) |
 | 0015 | Tool-Risk-Inventory and Approval Routing | accepted (V0.3.0-draft `shell_*`-Splitting) |
 | 0016 | Config Write Contract for Dispatch and Execution | accepted |
-| 0017 | Implementation Language for v0/v1a | proposed |
-| 0018 | Schema-First with JSON Schema for Data Boundaries | proposed |
+| 0017 | Implementation Language for v0/v1a | accepted (Python ≥ 3.13 mit `uv`) |
+| 0018 | Schema-First with JSON Schema for Data Boundaries | accepted (Pydantic-first, JSON Schema als Export-Artefakt) |
 
 ## 10 · Qualitätsanforderungen
 

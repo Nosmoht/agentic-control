@@ -6,6 +6,60 @@ Versionen folgen [Semantic Versioning](https://semver.org/) für Specs
 (Major = Breaking Change im Datenmodell oder in Modul-Grenzen,
 Minor = additiv, Patch = Klarstellungen/Fixes).
 
+## [0.3.4-draft] — 2026-04-27
+
+Entscheidungs-Patch. Schließt die zwei in V0.3.3-draft als
+`proposed` geöffneten Pre-Implementation-Decisions auf Basis
+empirischer Web-Verifikation und adversarieller Review der
+Empfehlungen.
+
+### Decided
+
+- **ADR-0017 — Python ≥ 3.13 mit `uv`** (Status `accepted`).
+  Strukturelle Begründung statt Treiber-Abwägung: DBOS Go-SDK ist
+  Postgres-only (verifiziert in dbos-transact-golang v0.13.0,
+  2026-04-22) und kollidiert mit ADR-0003 (SQLite-Substrat); kein
+  Pydantic-AI-Äquivalent in Go, kollidiert mit ADR-0004; Eval-
+  Stack (Arize Phoenix, Pydantic Logfire) hat keine Go-SDKs.
+  Anerkanntes Risiko Transitive-Dependency-Rot ist mitigiert via
+  `uv.lock`-Frozen-Snapshots + quartalsweisem Restore-Drill mit
+  Test-Boot des Daemons (Spec §10.4 + §7.1).
+- **ADR-0018 — Pydantic-Models als kanonische Single-Source,
+  JSON-Schema-Export** (Status `accepted`). Statt 15 handgepflegter
+  Standalone-JSON-Schema-Files (Empfehlung der `proposed`-Fassung
+  unter Sprach-Neutralität-Argument): Pydantic-Models in
+  `src/<package>/contracts/` sind die Quelle, `schemas/`-Files sind
+  Build-Artefakte via `model_json_schema()`. Vermeidet die im
+  Adversarial-Review benannte Drei-Quellen-Drift (Markdown +
+  JSON Schema + Pydantic). ADR-0016 Write Contract validiert
+  Konfig-YAMLs gegen die exportierten Schemas. Protobuf/OpenAPI
+  bleiben defer bis v2+.
+
+### Changed
+
+- **`docs/spec/SPECIFICATION.md` §7.1** trägt jetzt eine
+  Implementierungs-Zeile (Python ≥ 3.13 mit `uv`, `dbos-py`,
+  Pydantic AI, Pydantic-Contracts mit JSON-Schema-Export). Die
+  Restore-Drill-Beschreibung erwähnt explizit den Test-Boot-Schritt
+  als Risk-Mitigation für Dependency-Rot.
+- **`docs/spec/SPECIFICATION.md` §9 ADR-Tabelle** trägt für 0017
+  und 0018 Status `accepted` mit der gewählten Variante als Klammer-
+  Zusatz.
+- **`docs/plans/project-plan.md` Open Decisions** Punkte 5 und 6
+  sind jetzt geschlossen mit Verweis auf die getroffene Wahl und
+  ihre Begründung. Liste bleibt sechs Einträge lang als Lese-
+  Geschichte; künftige offene Entscheidungen wachsen darüber hinaus.
+
+### Method
+
+Vor der Festlegung wurden zwei parallele Sub-Agenten beauftragt:
+(1) empirische Verifikation der Stack-Annahmen via Web-Research
+mit Tier-1/Tier-2-Quellen, (2) adversarielle Review der ursprüng-
+lichen Empfehlung. Der DBOS-Go-Postgres-only-Befund war der
+strukturelle Showstopper; der Drei-Quellen-Drift-Befund hat die
+Schema-First-Empfehlung von Standalone-JSON auf Pydantic-Single-
+Source verschoben.
+
 ## [0.3.3-draft] — 2026-04-27
 
 Pre-Implementation-Decision-Patch. Zwei neue ADRs als `proposed`

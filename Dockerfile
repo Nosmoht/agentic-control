@@ -19,10 +19,15 @@ ARG UV_VERSION=0.11.8
 ARG PYTHON_VERSION=3.14
 
 # ---------- deps ----------
-# Astral publishes tags as `<uv-full-version>-python<py-version>-<base>`;
-# minor-level (0.11) and unpinned (latest) tags do not exist as
-# `python3.14-bookworm-slim` variants. Pin the full uv version.
-FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-bookworm-slim AS deps
+# Use the official python image and install uv via pip. Astral's
+# `ghcr.io/astral-sh/uv:<uv>-python<py>-<base>` matrix does not include
+# python3.14 tags as of 2026-04, so combining the official python image
+# with pip-installed uv is the portable path.
+FROM python:${PYTHON_VERSION}-slim-bookworm AS deps
+
+ARG UV_VERSION
+
+RUN pip install --no-cache-dir "uv==${UV_VERSION}"
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \

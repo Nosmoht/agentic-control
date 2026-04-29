@@ -72,10 +72,29 @@ F0007 als kleines additives Feature vorgeschlagen.
   Live-Matcher angewiesen, weil es `PolicyDecision(tool_risk_match)`-
   Records aus F0006 liest. Der Live-Matcher wird im Rahmen der
   Execution-Harness-Implementierung (ADR-0010) als eigenes Feature
-  geliefert (Counter-Counter-Counter-Review-2026-04-26 Befund 5).
+  geliefert (Counter-Counter-Counter-Review-2026-04-26 Befund 5;
+  vorgesehen als F0010 laut 2026-04-29-Audit).
   Fallback-Re-Match (siehe Scope) nutzt eine kleine in-process
   Glob-Implementierung — Test-Fixture-tauglich, nicht
   produktionsbindend.
+
+  **Fallback-Pattern-Matcher-Regeln** (V0.3.6-draft, Closure
+  R3-Lücke aus 2026-04-29 Audit). Eigenständige, normative
+  Spezifikation für die Fallback-Implementierung:
+
+  | Regel | Verhalten |
+  |---|---|
+  | Syntax | Glob nur (`*`, `?`, `[set]`); kein Regex. Implementierung über stdlib `fnmatch.fnmatch()`, kein Drittpaket. |
+  | Match-Reihenfolge | Top-down über `tool-risk-inventory.yaml.entries`; First-Match wins. |
+  | Catch-all | Letzter Eintrag muss `pattern: "*"` sein (Validator-Regel). Wenn nicht vorhanden: Fail-Closed-Default (`risk: high, approval: required`) wird in-Code injiziert. |
+  | Default-Hit | `default_hit=true`, wenn der Match auf den Catch-all oder den injizierten Default fiel. |
+  | Determinismus | Für identische `(tool_name, inventory_content_hash)` liefert der Matcher das identische Ergebnis. |
+
+  Der spätere Live-Matcher (F0010) **muss** dieselben Regeln tragen
+  und denselben Output-Schema liefern, sonst driftet F0007s
+  Re-Match vom Live-Match. Drift-Test in F0010-Implementierung:
+  Re-Match einer Stichprobe historischer `tool_call_record`-Rows
+  ergibt dieselben `PolicyDecision`-Outputs wie der Live-Matcher.
 - **Tool-Klassifikations-Vorschläge mit ML** (z. B. „dieses Tool
   sieht aus wie file_write") — v2-Kandidat, hier explizit
   ausgeschlossen.

@@ -6,6 +6,66 @@ Versionen folgen [Semantic Versioning](https://semver.org/) für Specs
 (Major = Breaking Change im Datenmodell oder in Modul-Grenzen,
 Minor = additiv, Patch = Klarstellungen/Fixes).
 
+## [0.3.6-draft] — 2026-04-29
+
+R3-Patch-Welle für die fünf v1a-Bestandsfeatures (F0004, F0005, F0006,
+F0007, F0008), basierend auf dem Pre-v1a-Implementation-Readiness-
+Audit (`docs/reviews/2026-04-29-v1a-readiness-audit.md`). Closure aller
+fünf identifizierten R3-Lücken; danach sind die Bestandsfeatures
+ready-to-implement (mit Ausnahme der Abhängigkeit auf F0010, das als
+neues Feature noch ausstehend ist).
+
+### Changed
+
+- **F0008** — neue AC 10 spezifiziert den polymorphen-Ref-Validierungs-
+  Hook (`EvidenceSubjectRef` als discriminated Pydantic-Union,
+  `validate_subject_ref(engine, ref)` als Hook-Signatur in
+  `persistence/evidence_validator.py`) sowie die Drei-Datei-
+  Erweiterungs-Regel für neue Subject-Typen (Migration-CHECK +
+  Pydantic-Union + Validator-Branch in einem Commit, gegen Audit-Test).
+- **F0006** — JSONL-Runlog-Format normativ spezifiziert: ein JSON-
+  Objekt pro Zeile, fünf Pflichtfelder (`ts`, `level`, `event_type`,
+  `run_attempt_id`, `seq`), 8-Werte-`event_type`-Enum mit
+  CHECK-Constraint, event-spezifische Pflichtfelder pro
+  `event_type`. Pydantic-Schema in
+  `src/agentic_control/contracts/runlog.py` als Single-Source.
+- **F0004** — Benchmark-Normalisierungs-Schema als Pydantic-Modell
+  `BenchmarkScore` ausformuliert: 5er-`source`-Literal-Enum,
+  Pflicht-/Optional-Felder mit Typen, `ScoreValue` discriminated union
+  (`single_float`, `ratio`, `percentile`), `model_id`-Auflösungsregel
+  (`unknown:<raw>`-Fallback), Schema-Mismatch-Verhalten
+  (`BenchmarkSchemaError` per Quelle, kein Pull-Abbruch).
+- **F0005** — `adapter_assignment_rules`-Schema explizit definiert:
+  YAML-Liste mit `provider_pattern` (Glob via `fnmatch`) +
+  `adapter`-Literal (`claude_code` | `codex_cli` | `null`),
+  ordered first-match-wins, Validator erzwingt letzten Eintrag als
+  `provider_pattern: "*"` Catch-all. Schließt die V0.3.0-draft-
+  Referenz, die bis 0.3.5-draft auf eine nirgendwo definierte Regel
+  zeigte.
+- **F0007** — Fallback-Pattern-Matcher-Regeln inline spezifiziert
+  (Glob-only via stdlib `fnmatch`, Top-down First-Match, Validator-
+  erzwungener Catch-all, Default-Hit-Semantik, Determinismus-
+  Garantie). Drift-Vertrag mit dem späteren Live-Matcher (F0010): Re-
+  Match historischer Rows muss identisches `PolicyDecision`-Output
+  liefern.
+
+### Method
+
+Pre-v1a-Implementation-Readiness-Audit am 2026-04-29 lief das R1–R4-
+Gate gegen alle ADRs 0010–0016 und Features F0003–F0008. Befunde:
+1 von 6 Bestandsfeatures ready (F0003 pinned-Mode), 5 mit konkreten
+R3-Lücken, 4 ADRs ohne Feature-File (F0009–F0012 vorgeschlagen).
+Diese Patch-Welle schließt die 5 R3-Lücken; F0009–F0012 sind separate
+Folgearbeit.
+
+### Outstanding
+
+- F0010 (Tool-Risk Pattern Matcher zur Call-Zeit) bleibt offen; F0007
+  ist nun self-contained über die Fallback-Spec, F0009 (Execution
+  Harness) wird F0010 als Sub-Feature oder Voraussetzung benötigen.
+- F0009, F0011 (HITL Inbox), F0012 (Litestream Restore-Drill) bleiben
+  als noch zu erstellende Feature-Files.
+
 ## [0.3.5-draft] — 2026-04-29
 
 Pre-Implementation-Patch. Schließt drei R3-Lücken (Issue Clarity per

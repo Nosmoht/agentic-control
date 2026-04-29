@@ -30,8 +30,38 @@ v1.x.
   - LiveBench (monatliches GitHub-Release).
   - Aider Polyglot Leaderboard (JSON im Repo).
   - Chatbot Arena Community-API (z. B. `api.wulong.dev`).
-- Payloads werden normalisiert nach einem internen Schema:
-  `{source, pulled_at, model_id, task_class, metric, score, rank?, meta}`
+- Payloads werden normalisiert nach einem internen Schema (Pydantic
+  v2, Single-Source per ADR-0018, Closure R3-Lücke aus 2026-04-29
+  Audit). Modell `BenchmarkScore` in
+  `src/agentic_control/contracts/benchmarks.py`:
+
+  | Feld | Typ | Pflicht | Bemerkung |
+  |---|---|---|---|
+  | `source` | `Literal["hf_open_llm","swe_bench_verified","livebench","aider_polyglot","arena_elo"]` | ✓ | CHECK-Constraint |
+  | `pulled_at` | `datetime` (UTC) | ✓ | |
+  | `model_id` | `str` | ✓ | Auflösungs-Regel siehe unten |
+  | `task_class` | `str` | ✓ | freier Slug, z. B. `coding_swe_bench_verified` |
+  | `metric` | `str` | ✓ | z. B. `pass_rate`, `elo`, `accuracy` |
+  | `score` | `ScoreValue` | ✓ | discriminated union, siehe unten |
+  | `rank` | `int \| None` | ✗ | |
+  | `meta` | `dict[str, Any]` | ✗ | quellen-spezifische Extras |
+
+  **`ScoreValue` discriminated union** (Pydantic-Tag `kind`):
+  - `kind="single_float"`, `value: float` (z. B. arena Elo, accuracy)
+  - `kind="ratio"`, `numerator: int`, `denominator: int` (z. B.
+    SWE-bench `resolved/total`)
+  - `kind="percentile"`, `pct: float` (0.0–100.0)
+
+  **`model_id`-Auflösung** beim Insert in `evidence`/`artifact`:
+  Vergleich mit Einträgen in `model-inventory.yaml`. Match → kanoni-
+  scher `model_id`. Kein Match → `model_id` wird als
+  `unknown:<raw>` gespeichert (sichtbar für F0005 Modell-Arrival-
+  Detection), kein Fail.
+
+  **Schema-Mismatch-Verhalten**: Source-Adapter wirft
+  `BenchmarkSchemaError` mit `source`, `raw_payload_excerpt`,
+  `validation_error` → wird in stderr geloggt, der konkrete Pull für
+  diese Quelle wird übersprungen, der Gesamt-Pull läuft weiter (AC 5).
 - Speicherung: jeder Pull erzeugt ein `Evidence(kind=benchmark)`-Record
   mit Referenz auf ein `Artifact(kind=benchmark_raw)`, das den
   Rohpayload enthält.

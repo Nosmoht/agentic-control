@@ -44,8 +44,30 @@ zwischen F0001 (v0-Schema) und F0003/F0004/F0005.
   - `dispatch_decision` (post-gate-final, frozen pro `RunAttempt`,
     ADR-0014).
 - **JSONL-Runlog pro RunAttempt** als Append-only-Datei unter
-  `~/.agentic-control/logs/runs/<run-attempt-id>.jsonl` (stdout der
-  Agent-CLI, strukturiert).
+  `~/.agentic-control/logs/runs/<run-attempt-id>.jsonl`. Format
+  normativ (V0.3.6-draft, Closure R3-Lücke aus 2026-04-29 Audit):
+  - Ein JSON-Objekt pro Zeile, niemals mehrzeilig (`O_APPEND`-sicher).
+  - **Pflichtfelder pro Zeile:**
+    `ts` (ISO-8601 UTC mit Mikrosekunden),
+    `level` (`debug` | `info` | `warn` | `error`),
+    `event_type` (siehe Enum unten),
+    `run_attempt_id` (UUIDv7),
+    `seq` (monoton-wachsender int pro RunAttempt, 0-indexiert).
+  - **`event_type`-Enum** (CHECK-Constraint im Pydantic-Modell):
+    `tool_call_start`, `tool_call_end`, `audit_event`,
+    `policy_decision`, `sandbox_violation`, `budget_entry`,
+    `agent_message`, `error`.
+  - **Event-spezifische Pflichtfelder** je nach `event_type`:
+    - `tool_call_*`: `tool_name`, `tool_call_id` (FK zu
+      `tool_call_record.id`), `args_hash` (sha256-prefix-12).
+    - `audit_event`: `audit_event_id`, `subject_ref`.
+    - `policy_decision`: `policy`, `decision_id`, `outcome`.
+    - `sandbox_violation`: `category`, `detail` (JSON).
+    - `budget_entry`: `scope`, `amount_usd`, `cumulative_usd`.
+  - Pydantic-Schema lebt in
+    `src/agentic_control/contracts/runlog.py` und ist Single-Source
+    (ADR-0018). Validator schlägt fehl bei unbekanntem `event_type`
+    oder fehlenden Pflichtfeldern.
 - **JSONL-Budget-Ledger pro Tag** als Tagesdatei
   `~/.agentic-control/logs/budget/<YYYY-MM-DD>.jsonl` (Aggregation
   der `BudgetLedgerEntry`-Rows zur Tagessicht).

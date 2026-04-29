@@ -27,7 +27,12 @@ FROM python:${PYTHON_VERSION}-slim-bookworm AS deps
 
 ARG UV_VERSION
 
-RUN pip install --no-cache-dir "uv==${UV_VERSION}"
+# sqlite3 CLI is needed by the schema-dump test; ship it in deps so
+# every derived stage (dev, test, smoke, runtime) has it.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends sqlite3 \
+ && rm -rf /var/lib/apt/lists/* \
+ && pip install --no-cache-dir "uv==${UV_VERSION}"
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
@@ -71,7 +76,8 @@ FROM python:${PYTHON_VERSION}-slim-bookworm AS runtime
 # sqlite3 CLI for diagnostics (tiny); rest comes from the venv.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends sqlite3 \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /root/.cache
 
 COPY --from=deps /opt/venv /opt/venv
 COPY --from=dev /app/src /app/src

@@ -16,3 +16,20 @@
 .env
 .env.*
 !.env.example
+
+# Python / uv
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Local SQLite state
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

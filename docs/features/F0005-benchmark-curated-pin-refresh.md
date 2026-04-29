@@ -120,6 +120,33 @@ weniger Fix-Runden bei besserer Erstwahl.
    Warnung emittiert („Modell hat keinen unterstützten Adapter in
    V1"); der Vorschlag bleibt im Proposal sichtbar, kann aber nicht
    `accept`-iert werden, bis ein Adapter zugeordnet ist.
+
+   **Schema von `adapter_assignment_rules`** (V0.3.6-draft, Closure
+   R3-Lücke aus 2026-04-29 Audit). Liste ordered, first-match-wins:
+
+   ```yaml
+   rules:
+     adapter_assignment_rules:
+       - provider_pattern: "anthropic/*"
+         adapter: claude_code
+       - provider_pattern: "openai/*"
+         adapter: codex_cli
+       - provider_pattern: "x-ai/*"
+         adapter: codex_cli      # via OpenRouter compatibility
+       - provider_pattern: "*"   # fall-through
+         adapter: null
+   ```
+
+   Pydantic-Modell `AdapterAssignmentRule` mit:
+   - `provider_pattern: str` (Glob via stdlib `fnmatch`, gegen
+     `model_id` der Form `<provider>/<model-name>`)
+   - `adapter: Literal["claude_code","codex_cli"] | None`
+
+   Validator-Regel: letzter Eintrag muss `provider_pattern: "*"` sein
+   (Fail-Closed für unbekannte Provider; explicit catch-all). Schreibt
+   Validierung beim Lesen der `model-inventory.yaml`, bricht
+   `agentctl benchmarks refresh` ab, wenn die Datei keinen Catch-all
+   enthält.
 9. Drift-Detection respektiert Benchmark-Freshness: Benchmarks älter
    als 60 Tage werden für Drift ignoriert (zu unsicheres Signal),
    eine Warnung wird angezeigt.

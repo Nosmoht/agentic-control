@@ -83,12 +83,34 @@ F0001 → F0008 → F0006 → [F0003, F0004, F0007] → F0005.
      **nicht** in SQLite erzwungen (polymorpher FK ist nicht trivial
      und wäre Overkill für n=1); F0006 prüft die Existenz beim
      Insert auf Anwendungsebene über einen kleinen Validierungs-
-     Hook, der vor dem `INSERT` die Subject-Tabelle abfragt.
+     Hook, der vor dem `INSERT` die Subject-Tabelle abfragt
+     (Hook-Kontrakt siehe „Polymorpher-Ref-Validierungs-Hook" unten).
 8. Migration ist idempotent: zweite Ausführung erzeugt keinen Fehler
    und keine Duplikate.
 9. **Integrationstest mit F0001 + F0008 + F0006**: nacheinander
    ausgeführt, das Gesamtschema enthält 4 + 3 + 8 = 15 Tabellen, alle
    FK-Verbindungen funktionieren.
+10. **Polymorpher-Ref-Validierungs-Hook** (V0.3.6-draft, Closure
+    der R3-Lücke aus 2026-04-29 Audit):
+    - Pydantic-Modell `EvidenceSubjectRef` in
+      `src/agentic_control/contracts/evidence.py` als discriminated
+      union über `kind: Literal["work_item","run","artifact","decision"]`
+      + `id: UUIDv7`. `model_dump()` rendert das `<kind>:<id>`-Format
+      für die SQL-Spalte; `model_validate()` parst es zurück.
+    - Validierungs-Hook-Signatur in
+      `src/agentic_control/persistence/evidence_validator.py`:
+      `validate_subject_ref(engine: Engine, ref: EvidenceSubjectRef)
+      -> None`. Wirft `RepositoryError` wenn die Subject-Row in der
+      kind-zugeordneten Tabelle nicht existiert.
+    - F0006-Repository ruft den Hook **vor** jedem `evidence`-Insert
+      auf (gleiche Transaction).
+    - Erweiterung um neue Subject-Typen ist eine atomare Änderung in
+      drei Dateien: (a) Migrations-Skript erweitert die CHECK-Regex,
+      (b) `EvidenceSubjectRef`-Union bekommt einen neuen Arm,
+      (c) `validate_subject_ref` bekommt eine neue Tabellen-Branch.
+      Alle drei Änderungen kommen in **einem** Commit; der Audit
+      `tests/integration/test_evidence_polymorphic.py` schlägt fehl,
+      wenn nur einer der drei Punkte gepatcht ist.
 
 ## Test Plan
 

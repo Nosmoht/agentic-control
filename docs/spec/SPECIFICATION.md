@@ -1,6 +1,6 @@
 ---
 title: Personal Agentic Control System — V1 Specification
-version: 0.3.5-draft
+version: 0.3.6-draft
 status: draft
 date: 2026-04-24
 template: arc42 v8.2

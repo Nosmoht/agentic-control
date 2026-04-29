@@ -15,10 +15,13 @@
 #   docker build --target runtime -t agentctl:v0 .
 #   docker run --rm -v $HOME/.agentic-control:/data agentctl:v0 work next
 
-ARG UV_VERSION=0.11
+ARG UV_VERSION=0.11.8
 ARG PYTHON_VERSION=3.14
 
 # ---------- deps ----------
+# Astral publishes tags as `<uv-full-version>-python<py-version>-<base>`;
+# minor-level (0.11) and unpinned (latest) tags do not exist as
+# `python3.14-bookworm-slim` variants. Pin the full uv version.
 FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-bookworm-slim AS deps
 
 ENV UV_LINK_MODE=copy \

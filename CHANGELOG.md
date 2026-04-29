@@ -6,6 +6,72 @@ Versionen folgen [Semantic Versioning](https://semver.org/) für Specs
 (Major = Breaking Change im Datenmodell oder in Modul-Grenzen,
 Minor = additiv, Patch = Klarstellungen/Fixes).
 
+## [0.3.5-draft] — 2026-04-29
+
+Pre-Implementation-Patch. Schließt drei R3-Lücken (Issue Clarity per
+`~/.claude/CLAUDE.md`), die F0001 und F0002 daran hinderten, als
+„ready to implement" zu gelten. Nach diesem Patch sind beide v0-
+Features R1–R4-konform.
+
+### Decided
+
+- **ADR-0019 — Primary-Key-Strategie: UUIDv7 (RFC 9562)** (Status
+  `accepted`). Native Pydantic-v2- und SQLAlchemy-Unterstützung
+  beidseits SQLite und Postgres; sauberer ADR-0013-Migrations-Pfad
+  (PG 18 generiert UUIDv7 nativ); CLI-Komfort via Präfix-Resolution
+  wie `git`/`docker`/`gh`. Backport via `uuid-utils` bis Python-3.14-
+  Upgrade, dann trivialer Import-Swap auf stdlib `uuid.uuid7`.
+  Alternative ULID kostet überall einen Custom-Decorator (drei
+  Drift-Punkte: Generator + SQL-Spalte + JSON-Schema). INTEGER-
+  ROWIDs sind nicht stabil über `VACUUM`/Sync.
+- **ADR-0020 — Migrations-Tool: Alembic ohne `--autogenerate`**
+  (Status `accepted`). Einziges Tool mit identischer Migrations-
+  Skript-Syntax unter SQLite und Postgres (ADR-0013-Pfad). SQLAlchemy
+  wird ausschließlich als Connection-/Type-Layer verwendet (kein ORM,
+  per Linter-Regel erzwungen), damit ADR-0018 Pydantic-First erhalten
+  bleibt. `--autogenerate` ist verboten, weil es eine dritte Schema-
+  Quelle erzeugen würde (Pydantic + SQLAlchemy + Migration-File).
+
+### Changed
+
+- **`docs/spec/SPECIFICATION.md` §5.7** trägt jetzt einen normativen
+  Block „Spaltentypen": UUIDv7 für IDs/FKs, ISO-8601 UTC für
+  Timestamps, CHECK-Constraints für State-Enums; `Observation.
+  classification` explizit als Freitext in v0. `Decision`-Pflichtfeld
+  `created_at` ergänzt.
+- **`docs/spec/SPECIFICATION.md` §6.1** ergänzt Decision-Lifecycle:
+  `proposed → accepted → superseded | rejected` (MADR-konform,
+  forward-only).
+- **`docs/spec/SPECIFICATION.md` §9** ADR-Tabelle trägt 0019 und 0020
+  als `accepted`.
+- **`docs/features/F0001-sqlite-schema-core-objects.md`** vollständig
+  überarbeitet: Package-Struktur (`src/agentic_control/`), UUIDv7-
+  Spaltentyp mit `LENGTH(id)=36`-CHECK, Alembic-Setup, explizite
+  State-Enums in CHECK-Constraints, Pydantic↔Schema-Drift-CI-Check,
+  Connection-Layer-Linter-Regel. ACs von 6 auf 10 erweitert.
+- **`docs/features/F0002-work-add-cli.md`** vollständig überarbeitet:
+  Hybrid-Multiline-Input für `--decision` (Editor + `--from-file` +
+  stdin + drei Einzelflags) mit Draft-Recovery in `$XDG_STATE_HOME`;
+  explizite Lifecycle-Transition-Matrix aus Spec §6.1; Präfix-
+  Resolution für UUIDv7-Argumente. ACs von 7 auf 11 erweitert.
+- **`docs/plans/project-plan.md`** Open-Decisions-Liste um die zwei
+  geschlossenen Punkte 7 und 8 (Primary-Key, Migrations-Tool)
+  erweitert; Stand-Datum auf 2026-04-29.
+
+### Method
+
+Vor dem Patch hat die Pre-Implementation-Triage die R3-Lücken in
+F0001/F0002 identifiziert (ID-Strategie, Migrations-Tool,
+Decision-Lifecycle, Multiline-Input, Observation-Classification,
+Package-Name, Transition-Matrix). Für die zwei nicht-trivialen
+Entscheidungen (ID-Strategie, Multiline-Input) liefen parallele Web-
+Recherchen mit Tier-1/2-Quellen. Empfehlungen wurden mit Begründung
+und Trade-off-Diskussion vorgelegt; Nutzer hat beide bestätigt. Die
+restlichen fünf Lücken wurden mit dokumentierten Defaults geschlossen
+(`agentic_control` als Package-Name, MADR-konformer Decision-
+Lifecycle, Observation-Classification als Freitext in v0,
+Transition-Matrix abgeleitet aus Spec §6.1).
+
 ## [0.3.4-draft] — 2026-04-27
 
 Entscheidungs-Patch. Schließt die zwei in V0.3.3-draft als

@@ -1,6 +1,6 @@
 ---
 title: Personal Agentic Control System — V1 Specification
-version: 0.3.4-draft
+version: 0.3.5-draft
 status: draft
 date: 2026-04-24
 template: arc42 v8.2
@@ -258,7 +258,7 @@ Quellen: Brief 14 (Kontext-Schnitt).
 | `Run` | Work | id, work_item_ref, agent, state, budget_cap, result_ref? | v1 |
 | `Dependency` | Portfolio | id, source_ref, target_ref, kind, state, basis | v2 |
 | `Observation` | Knowledge | id, source_ref, body, captured_at, classification? | v0 |
-| `Decision` | Knowledge | id, subject_ref, context, decision, consequence, state | v0 |
+| `Decision` | Knowledge | id, subject_ref, context, decision, consequence, state, created_at | v0 |
 | `Standard` | Knowledge | id, title, body, scope, state, applies_to? | v3 |
 | `Artifact` | Knowledge | id, origin_run_ref, kind, path\|ref, provenance, state | v1 |
 | `Evidence` | Knowledge | id, subject_ref, kind, source_ref, captured_at, jsonl_blob_ref? | v1 |
@@ -269,6 +269,18 @@ Run), `Workflow` (umbenannt zu `Run`).
 
 Die `Stage`-Spalte zeigt, in welcher Release-Stufe das Objekt aktiv wird
 (siehe Appendix A). v0-Objekte sind minimal tragfähige Teilmenge.
+
+**Spaltentypen (normativ ab V0.3.5-draft, ADR-0019):**
+
+- Alle `id`- und `*_ref`-Felder sind UUIDv7 (RFC 9562), gespeichert als
+  `TEXT(36)` in SQLite und `UUID` in Postgres (ADR-0013 v2+ Pfad).
+- Alle Timestamp-Felder sind ISO-8601 UTC als `TEXT` in SQLite, `TIMESTAMP
+  WITH TIME ZONE` in Postgres.
+- Alle `state`-Felder sind `TEXT` mit `CHECK`-Constraint gegen den in
+  §6.1 definierten Lifecycle-Enum.
+- `Observation.classification` ist in v0 freier `TEXT` (kein Enum); ein
+  Enum entsteht in v1, sobald genug Beobachtungs-Klassen empirisch
+  identifiziert sind.
 
 #### Runtime Records (technischer Querschnitt, ADR-0011)
 
@@ -303,6 +315,11 @@ und Retry-Semantik, haben eigenes Schema und Retention-Policy.
 - `Dependency`: `proposed → established → satisfied/violated → obsolete`
 - `Standard`: `candidate → accepted → bound → retired`
 - `Artifact`: `registered → available → consumed → superseded → archived`
+- `Decision`: `proposed → accepted → superseded | rejected`
+  - MADR-konform (ADR-0019). `accepted` ist der primäre Wirk-Zustand;
+    `superseded` zeigt auf eine spätere Decision, die diese ersetzt;
+    `rejected` ist Terminal ohne Nachfolger. Keine Rück-Transitionen
+    (forward-only).
 
 ### 6.2 Hauptflüsse
 
@@ -594,6 +611,8 @@ Einstiegs-Index der MADRs in [`../decisions/`](../decisions/):
 | 0016 | Config Write Contract for Dispatch and Execution | accepted |
 | 0017 | Implementation Language for v0/v1a | accepted (Python ≥ 3.13 mit `uv`) |
 | 0018 | Schema-First with JSON Schema for Data Boundaries | accepted (Pydantic-first, JSON Schema als Export-Artefakt) |
+| 0019 | Primary-Key-Strategie für Domain-Tabellen | accepted (UUIDv7, `uuid-utils`-Backport bis Python 3.14) |
+| 0020 | Migrations-Tool für SQLite-Schema | accepted (Alembic, ohne `--autogenerate`) |
 
 ## 10 · Qualitätsanforderungen
 

@@ -9,7 +9,7 @@ Ein **Dokumentations-Repo** — keine Implementierung. Es spezifiziert V1 eines
 persönlichen agentischen Steuerungssystems. Die V1-Spec ist in
 [`docs/spec/SPECIFICATION.md`](docs/spec/SPECIFICATION.md).
 
-Stand: **V0.3.4-draft**, 2026-04-27. Noch kein Code.
+Stand: **V0.3.5-draft**, 2026-04-29. Noch kein Code.
 
 ## Sprache
 

@@ -1,6 +1,6 @@
 # Project Plan
 
-**Version:** 0.3.4-draft · **Stand:** 2026-04-27
+**Version:** 0.3.5-draft · **Stand:** 2026-04-29
 
 Dieser Plan ist die Eine-Seite-Sicht auf die Roadmap. Details leben in der
 Spec (`docs/spec/SPECIFICATION.md`), den ADRs (`docs/decisions/`), den
@@ -127,6 +127,18 @@ anpassen.
    Statt 15 handgepflegter JSON-Schema-Files (würde doppelte Drift
    erzeugen). ADR-0016 Write Contract validiert Konfig-YAMLs gegen
    die exportierten Schemas. Protobuf/OpenAPI defer bis v2+.
+7. **Primary-Key-Strategie (ADR-0019, `accepted` 2026-04-29).**
+   UUIDv7 (RFC 9562) für alle Domain-Tabellen. Native Pydantic-v2-
+   und SQLAlchemy-Unterstützung beidseits SQLite und Postgres
+   (ADR-0013-Pfad). Backport via `uuid-utils` bis Python-3.14-
+   Upgrade, danach Import-Swap auf stdlib `uuid.uuid7`. CLI-Komfort
+   via Präfix-Resolution wie `git`/`docker`/`gh`. Package-Name fixed
+   auf `agentic_control` (Folge-Entscheidung).
+8. **Migrations-Tool (ADR-0020, `accepted` 2026-04-29).** Alembic
+   ohne `--autogenerate`. Identische Migrations-Skript-Syntax unter
+   SQLite und Postgres. SQLAlchemy nur als Connection-/Type-Layer
+   (kein ORM, per Linter erzwungen), damit ADR-0018 Pydantic-First
+   erhalten bleibt.
 
 ## Anti-Ziele (bewusst NICHT in diesem Plan)
 

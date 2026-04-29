@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Only one CI run per ref at a time; cancel in-flight runs on new push.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Quality gate (ruff + pytest via Dockerfile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build test stage
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: test
+          push: false
+          load: false
+          cache-from: type=gha,scope=test
+          cache-to: type=gha,mode=max,scope=test
+
+  smoke:
+    name: End-to-end smoke (CLI flow via Dockerfile)
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build smoke stage
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: smoke
+          push: false
+          load: false
+          cache-from: type=gha,scope=smoke
+          cache-to: type=gha,mode=max,scope=smoke

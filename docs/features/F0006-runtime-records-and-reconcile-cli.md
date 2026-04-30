@@ -69,12 +69,20 @@ zwischen F0001 (v0-Schema) und F0003/F0004/F0005.
     (ADR-0018). Validator schlägt fehl bei unbekanntem `event_type`
     oder fehlenden Pflichtfeldern.
   - **Hard-Limit 4096 Bytes pro serialisierter Zeile** (inkl. trailing
-    `\n`) als Closure der R3-Lücke V0.3.6-draft AC 8: POSIX `O_APPEND`
-    garantiert Atomarität nur für Writes ≤ `PIPE_BUF` (4 KB).
-    Pydantic-Validator wirft `RunlogLineTooLarge`, wenn
+    `\n`) als Closure der R3-Lücke V0.3.6-draft AC 8 (Doc-Korrektur
+    nach Staff-Review 2026-04-30): das Limit ist ein **Sanity-Cap
+    gegen Bloat-Events**, *nicht* die Quelle der Atomarität. POSIX
+    Linux `open(2)` und macOS APFS garantieren auf Regular-Files mit
+    `O_APPEND` einen atomaren „seek-to-end + write"-Schritt
+    **unbounded** (`PIPE_BUF` bindet nur Pipes/FIFOs). Begründung
+    für den Cap: (a) grosse Zeilen sind fast immer ein Bug, (b)
+    Tooling (head/tail/grep) ist mit beschränkten Zeilen glücklich,
+    (c) bei Disk-Full / `EINTR` ist das Short-Write-Fenster klein.
+    Pydantic-Validator wirft `RunlogLineTooLargeError`, wenn
     `len(model.model_dump_json().encode() + b"\n") > 4096`. Writer
     nutzt `os.write(fd, line)` mit per `O_APPEND` geöffnetem fd in
-    einer einzigen Syscall.
+    einer einzigen Syscall und **fail-loud** bei Short-Write
+    (`raise OSError`), weil Re-Issue die Zeile teilen würde.
 - **JSONL-Budget-Ledger pro Tag** als Tagesdatei
   `~/.agentic-control/logs/budget/<YYYY-MM-DD>.jsonl` (Aggregation
   der `BudgetLedgerEntry`-Rows zur Tagessicht).
@@ -155,12 +163,16 @@ zwischen F0001 (v0-Schema) und F0003/F0004/F0005.
    stehende Runs bleiben unverändert.
 8. JSONL-Runlog pro RunAttempt ist append-only und übersteht einen
    Crash mid-write (kein partieller Eintrag). **Garantie via
-   POSIX-`O_APPEND`-Atomarität für Writes ≤ `PIPE_BUF` (4096 B)**:
-   Pydantic-Validator `RunlogEntry` lehnt Zeilen > 4096 B (inkl.
-   `\n`) mit `RunlogLineTooLarge` ab, Writer nutzt `os.write(fd,
-   line)` in einer Syscall (V0.3.6-draft Closure R3-Lücke AC 8).
-   Negative-Test: Insert eines `RunlogEntry`, dessen JSON-
-   Serialisierung > 4096 B ist, schlägt vor dem Schreiben fehl.
+   POSIX-`O_APPEND`-Atomarität auf Regular-Files (unbounded) plus
+   4096-B-Sanity-Cap als Bloat-Schutz** (Doc-Korrektur nach Staff-
+   Review 2026-04-30 — der Cap ist *nicht* die Atomaritäts-Quelle,
+   `PIPE_BUF` bindet nur Pipes/FIFOs): Pydantic-Validator
+   `RunlogEntry` lehnt Zeilen > 4096 B (inkl. `\n`) mit
+   `RunlogLineTooLargeError` ab, Writer nutzt `os.write(fd, line)`
+   in einer Syscall mit `O_APPEND`-fd und wirft `OSError` bei
+   Short-Write (Disk-Full / `EINTR`), weil Re-Issue die Zeile
+   teilen würde. Negative-Test: Insert eines `RunlogEntry`, dessen
+   JSON-Serialisierung > 4096 B ist, schlägt vor dem Schreiben fehl.
 9. JSONL-Budget-Ledger aggregiert die Tages-`BudgetLedgerEntry`-
    Rows beim Tageswechsel automatisch (Cron oder Lazy-Aggregation
    beim ersten `agentctl costs today`-Aufruf).

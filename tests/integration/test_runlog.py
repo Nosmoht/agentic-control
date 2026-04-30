@@ -12,7 +12,7 @@ import pytest
 from agentic_control.contracts import (
     LINE_MAX_BYTES,
     AgentMessageEvent,
-    RunlogLineTooLarge,
+    RunlogLineTooLargeError,
     SandboxViolationEvent,
     ToolCallStartEvent,
     new_id,
@@ -59,7 +59,7 @@ def test_oversize_event_raises_runlog_line_too_large() -> None:
         seq=0,
         body=huge_body,
     )
-    with pytest.raises(RunlogLineTooLarge, match="exceeds 4096"):
+    with pytest.raises(RunlogLineTooLargeError, match="exceeds 4096"):
         serialise_runlog_line(event)
 
 

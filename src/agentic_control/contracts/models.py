@@ -8,7 +8,8 @@ migrations/versions/0001 mirrors the same shape.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -24,7 +25,7 @@ from agentic_control.contracts.lifecycle import (
 
 
 def _utcnow() -> datetime:
-    return datetime.now()
+    return datetime.now(tz=UTC)
 
 
 class _DomainBase(BaseModel):
@@ -62,7 +63,7 @@ class Run(_DomainBase):
     work_item_ref: UUIDv7
     agent: str = Field(min_length=1, max_length=200)
     state: RunState = "created"
-    budget_cap: float = Field(ge=0.0)
+    budget_cap: Decimal = Field(ge=Decimal("0"))
     result_ref: str | None = None
     created_at: datetime = Field(default_factory=_utcnow)
 

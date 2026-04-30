@@ -4,23 +4,30 @@ Append-only line-oriented log under
 ``~/.agentic-control/logs/runs/<run_attempt_id>.jsonl``. One JSON object
 per line, never multi-line.
 
-R3-Closure (V0.3.6-draft, 2026-04-30): each line is hard-capped at 4096
-bytes including the trailing newline. POSIX guarantees `O_APPEND`
-atomicity only for writes ``<= PIPE_BUF (4 KB)``; the
-``serialise_runlog_line`` helper raises ``RunlogLineTooLarge`` before
-the write can be issued. The persistence-layer writer
+Each line is hard-capped at 4096 bytes including the trailing newline.
+The cap is a **sanity guard against bloated event payloads**, not the
+source of atomicity: Linux ``open(2)`` (and macOS APFS in practice) make
+the seek-to-end-and-write step on an ``O_APPEND``-opened regular file
+**atomic for any size** — ``PIPE_BUF`` only bounds atomicity on
+pipes/FIFOs. The cap is still useful because (a) huge lines are almost
+always a bug, (b) downstream tooling (head/tail/grep) is happier with
+bounded lines, and (c) the size keeps short-write risk (disk-full,
+``EINTR``) small. The persistence-layer writer
 (`persistence.runlog_writer.append_runlog_line`) issues the resulting
-bytes in a single ``os.write`` syscall.
+bytes in a single ``os.write`` syscall and **fail-louds** on a short
+write rather than silently producing a torn line.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Discriminator, Field, TypeAdapter
 
 from agentic_control.contracts.audit_subject import AuditSubjectRef
+from agentic_control.contracts.hashes import Hex12
 from agentic_control.contracts.ids import UUIDv7
 from agentic_control.contracts.lifecycle import (
     BudgetScope,
@@ -35,11 +42,6 @@ class RunlogLineTooLargeError(ValueError):
     """Raised when a serialised RunlogEntry plus newline exceeds LINE_MAX_BYTES."""
 
 
-# Public alias kept for ergonomic import; backed by the Error-suffixed class
-# (ruff N818). Both names refer to the same exception type.
-RunlogLineTooLarge = RunlogLineTooLargeError
-
-
 class _RunlogBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
     ts: datetime
@@ -52,14 +54,14 @@ class ToolCallStartEvent(_RunlogBase):
     event_type: Literal["tool_call_start"] = "tool_call_start"
     tool_name: str = Field(min_length=1, max_length=200)
     tool_call_id: UUIDv7
-    args_hash: str = Field(min_length=12, max_length=12)
+    args_hash: Hex12
 
 
 class ToolCallEndEvent(_RunlogBase):
     event_type: Literal["tool_call_end"] = "tool_call_end"
     tool_name: str = Field(min_length=1, max_length=200)
     tool_call_id: UUIDv7
-    args_hash: str = Field(min_length=12, max_length=12)
+    args_hash: Hex12
 
 
 class AuditEventEvent(_RunlogBase):
@@ -84,8 +86,8 @@ class SandboxViolationEvent(_RunlogBase):
 class BudgetEntryEvent(_RunlogBase):
     event_type: Literal["budget_entry"] = "budget_entry"
     scope: BudgetScope
-    amount_usd: float = Field(ge=0.0)
-    cumulative_usd: float = Field(ge=0.0)
+    amount_usd: Decimal = Field(ge=Decimal("0"))
+    cumulative_usd: Decimal = Field(ge=Decimal("0"))
 
 
 class AgentMessageEvent(_RunlogBase):
@@ -118,16 +120,15 @@ _RUNLOG_ADAPTER: TypeAdapter[RunlogEntry] = TypeAdapter(RunlogEntry)
 def serialise_runlog_line(entry: RunlogEntry) -> bytes:
     """Render a single RunlogEntry as JSON + ``\\n``, enforcing the 4 KB cap.
 
-    Raises ``RunlogLineTooLarge`` if the resulting payload exceeds
-    ``LINE_MAX_BYTES``. The cap matches POSIX ``PIPE_BUF`` so a downstream
-    ``os.write(fd, line)`` on an ``O_APPEND``-opened fd is atomic w.r.t.
-    other writers and crash boundaries.
+    Raises ``RunlogLineTooLargeError`` if the resulting payload exceeds
+    ``LINE_MAX_BYTES``. The cap is a sanity guard against bloated events;
+    atomicity is provided by ``O_APPEND`` independently of size.
     """
     payload = _RUNLOG_ADAPTER.dump_json(entry) + b"\n"
     if len(payload) > LINE_MAX_BYTES:
-        raise RunlogLineTooLarge(
+        raise RunlogLineTooLargeError(
             f"runlog line is {len(payload)} bytes, exceeds {LINE_MAX_BYTES} "
-            f"(POSIX PIPE_BUF); shrink the event payload"
+            "byte sanity cap; shrink the event payload"
         )
     return payload
 
@@ -145,7 +146,6 @@ __all__ = [
     "ErrorEvent",
     "PolicyDecisionEvent",
     "RunlogEntry",
-    "RunlogLineTooLarge",
     "RunlogLineTooLargeError",
     "SandboxViolationEvent",
     "ToolCallEndEvent",

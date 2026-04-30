@@ -17,7 +17,8 @@ Records sorted by their primary timestamp:
 from __future__ import annotations
 
 import uuid
-from typing import Annotated, Any
+from decimal import Decimal
+from typing import Annotated, Any, cast
 
 import typer
 from sqlalchemy import Engine, text
@@ -109,12 +110,9 @@ def inspect(
 
     attempts = list_run_attempts_for_run(engine, run_id)
 
-    # Typed casts to satisfy pyright after `fail()` (which is NoReturn).
+    # Typed cast after fail() narrowing — line 85 already validated `policy`.
     assert run_row is not None
-
-    policy_filter: PolicyTag | None = (
-        policy if policy in _VALID_POLICY_TAGS else None  # type: ignore[assignment]
-    )
+    policy_filter = cast("PolicyTag | None", policy)
 
     attempt_views: list[dict[str, Any]] = []
     sandbox_violations_seen: list[SandboxViolation] = []
@@ -123,17 +121,20 @@ def inspect(
         attempt_views.append(view)
         sandbox_violations_seen.extend(view["sandbox_violations"])
 
-    # F0006 AC 13: emit alert for each observed sandbox violation.
+    # F0006 AC 13: emit one alert per observed sandbox violation.
     for violation in sandbox_violations_seen:
         alerts.emit_sandbox_violation_alert(violation)
 
     if output_json:
-        payload = {
-            "run": run_row,
-            "attempts": [_view_to_jsonable(v) for v in attempt_views],
-            "policy_filter": policy_filter,
-        }
-        emit(payload, True, "")
+        emit(
+            {
+                "run": run_row,
+                "attempts": attempt_views,
+                "policy_filter": policy_filter,
+            },
+            True,
+            "",
+        )
         return
 
     print(_format_human(run_row, attempt_views, policy_filter=policy_filter))
@@ -147,7 +148,11 @@ def _load_run_row(engine: Engine, run_id: uuid.UUID) -> dict[str, Any] | None:
 
     There is no `Run`-typed read helper in the repository yet (PR2 is
     explicitly out of scope for adding one). The inspect CLI surfaces a
-    handful of fields directly from the row dict.
+    handful of fields directly from the row dict; that means
+    ``budget_cap`` round-trips as whatever SQLite gave the driver
+    (str / Decimal / float depending on the NUMERIC affinity coercion).
+    A future PR that adds a typed Run read helper will retire this
+    asymmetry — at that point JSON output will guarantee Decimal-as-str.
     """
     with engine.connect() as conn:
         row = conn.execute(
@@ -161,6 +166,9 @@ def _collect_attempt(
     attempt: RunAttempt,
     policy_filter: PolicyTag | None,
 ) -> dict[str, Any]:
+    # 8 SELECTs per attempt. Acceptable at n=1 scale (Spec §1: ≤ 2 active
+    # items). Revisit with prefetch-by-run_id when M ≥ 3 attempts becomes
+    # typical.
     return {
         "attempt": attempt,
         "dispatch": get_dispatch_decision_for_attempt(engine, attempt.id),
@@ -173,11 +181,6 @@ def _collect_attempt(
         "budget_entries": list_budget_ledger_entries_for_attempt(engine, attempt.id),
         "sandbox_violations": list_sandbox_violations_for_attempt(engine, attempt.id),
     }
-
-
-def _view_to_jsonable(view: dict[str, Any]) -> dict[str, Any]:
-    """Shallow shape for JSON emission — the `emit` helper handles model_dump."""
-    return view
 
 
 def _format_human(
@@ -251,8 +254,8 @@ def _format_attempt(
             out.append(f"    {ts}  {ev.actor}  {ev.event_type}  {subj}")
 
     policies = view["policy_decisions"]
+    suffix = f" [filter={policy_filter}]" if policy_filter else ""
     if policies:
-        suffix = f" [filter={policy_filter}]" if policy_filter else ""
         out.append(f"  policies ({len(policies)}){suffix}:")
         for pd in policies:
             ts = pd.ts.isoformat(sep=" ", timespec="seconds")
@@ -266,6 +269,9 @@ def _format_attempt(
             else:
                 payload = _summarize_dict(pd.output)
             out.append(f"    {ts}  {pd.policy}  {subj}  {payload}")
+    elif policy_filter:
+        # Filter explicitly set but matched zero rows — surface that.
+        out.append(f"  policies (0){suffix}")
 
     approvals = view["approvals"]
     if approvals:
@@ -278,8 +284,22 @@ def _format_attempt(
 
     budget = view["budget_entries"]
     if budget:
-        total = sum((b.actual_usd or b.pre_call_projection_usd) for b in budget)
-        out.append(f"  budget ({len(budget)} entries, total ${total}):")
+        # Split: settled charges (actual) vs. open projections. Mixing the
+        # two into one sum hid two bugs — `Decimal("0")` is falsy so a
+        # literal-zero actual_usd would silently fall back to the
+        # projection, and "actual + projected" is semantically incoherent.
+        actual_total = sum(
+            (b.actual_usd for b in budget if b.actual_usd is not None),
+            Decimal("0"),
+        )
+        projected_total = sum(
+            (b.pre_call_projection_usd for b in budget if b.actual_usd is None),
+            Decimal("0"),
+        )
+        out.append(
+            f"  budget ({len(budget)} entries, "
+            f"actual=${actual_total} projected=${projected_total}):"
+        )
         for b in budget:
             ts = b.ts.isoformat(sep=" ", timespec="seconds")
             actual = "—" if b.actual_usd is None else f"${b.actual_usd}"

@@ -15,6 +15,8 @@ _LOGGER = logging.getLogger("agentic_control.alerts")
 
 
 def emit_sandbox_violation_alert(violation: SandboxViolation) -> None:
+    # TODO(F0006-followup): replace with real alert channel (Slack/email/push).
+    # Contract: side-effect only, no return value, must not raise.
     _LOGGER.warning(
         "sandbox_violation: category=%s run_attempt=%s detail=%s",
         violation.category,

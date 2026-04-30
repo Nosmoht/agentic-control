@@ -14,7 +14,9 @@ serialise the discriminated payloads via Pydantic's TypeAdapter.
 from __future__ import annotations
 
 import json
+import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from pydantic import TypeAdapter
@@ -27,6 +29,7 @@ from agentic_control.contracts import (
     BudgetLedgerEntry,
     DispatchDecision,
     PolicyDecisionRecord,
+    PolicyTag,
     RunAttempt,
     SandboxViolation,
     ToolCallRecord,
@@ -34,6 +37,13 @@ from agentic_control.contracts import (
 from agentic_control.persistence.repository import RepositoryError
 
 _POLICY_ADAPTER: TypeAdapter[PolicyDecisionRecord] = TypeAdapter(PolicyDecisionRecord)
+_AUDIT_ADAPTER: TypeAdapter[AuditEvent] = TypeAdapter(AuditEvent)
+_APPROVAL_ADAPTER: TypeAdapter[ApprovalRequest] = TypeAdapter(ApprovalRequest)
+_BUDGET_ADAPTER: TypeAdapter[BudgetLedgerEntry] = TypeAdapter(BudgetLedgerEntry)
+_SANDBOX_ADAPTER: TypeAdapter[SandboxViolation] = TypeAdapter(SandboxViolation)
+_DISPATCH_ADAPTER: TypeAdapter[DispatchDecision] = TypeAdapter(DispatchDecision)
+_RUN_ATTEMPT_ADAPTER: TypeAdapter[RunAttempt] = TypeAdapter(RunAttempt)
+_TOOL_CALL_ADAPTER: TypeAdapter[ToolCallRecord] = TypeAdapter(ToolCallRecord)
 
 
 def _to_iso(dt: datetime) -> str:
@@ -381,8 +391,287 @@ def list_tool_calls_for_attempt(engine: Engine, attempt_id: str) -> list[dict[st
     return [dict(r._mapping) for r in rows]
 
 
+# ---------- Typed Re-Hydration (PR2: runs inspect) ----------
+#
+# These read helpers re-hydrate raw rows back into Pydantic models, complementing
+# the existing raw-dict helpers (get_run_attempt, list_tool_calls_for_attempt).
+# Inserts go through Pydantic; reads now do too — so the inspect CLI can rely on
+# typed objects (Decimal money, aware-UTC datetimes, validated discriminated unions).
+
+
+def _row_to_run_attempt(row: Any) -> RunAttempt:
+    d = dict(row._mapping)
+    return _RUN_ATTEMPT_ADAPTER.validate_python(
+        {
+            "id": d["id"],
+            "run_ref": d["run_ref"],
+            "attempt_ordinal": d["attempt_ordinal"],
+            "agent": d["agent"],
+            "model": d["model"],
+            "sandbox_profile": d["sandbox_profile"],
+            "prompt_hash": d["prompt_hash"],
+            "tool_allowlist": json.loads(d["tool_allowlist"]),
+            "logs_ref": d["logs_ref"],
+            "started_at": d["started_at"],
+            "ended_at": d["ended_at"],
+            "exit_code": d["exit_code"],
+        }
+    )
+
+
+def get_run_attempt_typed(engine: Engine, attempt_id: uuid.UUID) -> RunAttempt | None:
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT * FROM run_attempt WHERE id = :id"), {"id": str(attempt_id)}
+        ).first()
+    return _row_to_run_attempt(row) if row else None
+
+
+def list_run_attempts_for_run(engine: Engine, run_id: uuid.UUID) -> list[RunAttempt]:
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT * FROM run_attempt WHERE run_ref = :r "
+                "ORDER BY attempt_ordinal ASC, started_at ASC"
+            ),
+            {"r": str(run_id)},
+        ).fetchall()
+    return [_row_to_run_attempt(r) for r in rows]
+
+
+def _row_to_tool_call(row: Any) -> ToolCallRecord:
+    d = dict(row._mapping)
+    return _TOOL_CALL_ADAPTER.validate_python(
+        {
+            "id": d["id"],
+            "run_attempt_ref": d["run_attempt_ref"],
+            "tool_call_ordinal": d["tool_call_ordinal"],
+            "tool_name": d["tool_name"],
+            "input_hash": d["input_hash"],
+            "output_ref": d["output_ref"],
+            "duration_ms": d["duration_ms"],
+            "exit_code": d["exit_code"],
+            "idempotency_key": d["idempotency_key"],
+            "effect_class": d["effect_class"],
+            "started_at": d["started_at"],
+            "ended_at": d["ended_at"],
+        }
+    )
+
+
+def list_tool_calls_for_attempt_typed(
+    engine: Engine, attempt_id: uuid.UUID
+) -> list[ToolCallRecord]:
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT * FROM tool_call_record WHERE run_attempt_ref = :a "
+                "ORDER BY tool_call_ordinal ASC"
+            ),
+            {"a": str(attempt_id)},
+        ).fetchall()
+    return [_row_to_tool_call(r) for r in rows]
+
+
+def _row_to_audit_event(row: Any) -> AuditEvent:
+    d = dict(row._mapping)
+    return _AUDIT_ADAPTER.validate_python(
+        {
+            "id": d["id"],
+            "ts": d["ts"],
+            "actor": d["actor"],
+            "subject_ref": d["subject_ref"],
+            "event_type": d["event_type"],
+            "before_hash": d["before_hash"],
+            "after_hash": d["after_hash"],
+            "before_value": d["before_value"],
+            "after_value": d["after_value"],
+            "reason": d["reason"],
+            "run_attempt_ref": d["run_attempt_ref"],
+        }
+    )
+
+
+def list_audit_events_for_attempt(
+    engine: Engine, attempt_id: uuid.UUID
+) -> list[AuditEvent]:
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT * FROM audit_event WHERE run_attempt_ref = :a ORDER BY ts ASC"
+            ),
+            {"a": str(attempt_id)},
+        ).fetchall()
+    return [_row_to_audit_event(r) for r in rows]
+
+
+def _row_to_policy_decision(row: Any) -> PolicyDecisionRecord:
+    d = dict(row._mapping)
+    # The discriminated union resolves on `policy`. The TypeAdapter validates the
+    # raw `output` dict; for `policy='tool_risk_match'` rows it re-instantiates
+    # `PolicyDecisionToolRiskMatch` whose `output` is a `ToolRiskMatchOutput`.
+    return _POLICY_ADAPTER.validate_python(
+        {
+            "id": d["id"],
+            "ts": d["ts"],
+            "policy": d["policy"],
+            "subject_ref": d["subject_ref"],
+            "inputs": json.loads(d["inputs"]),
+            "output": json.loads(d["output"]),
+            "run_attempt_ref": d["run_attempt_ref"],
+        }
+    )
+
+
+def list_policy_decisions_for_attempt(
+    engine: Engine,
+    attempt_id: uuid.UUID,
+    policy: PolicyTag | None = None,
+) -> list[PolicyDecisionRecord]:
+    if policy is None:
+        sql = text(
+            "SELECT * FROM policy_decision WHERE run_attempt_ref = :a ORDER BY ts ASC"
+        )
+        params: dict[str, Any] = {"a": str(attempt_id)}
+    else:
+        sql = text(
+            "SELECT * FROM policy_decision WHERE run_attempt_ref = :a AND policy = :p "
+            "ORDER BY ts ASC"
+        )
+        params = {"a": str(attempt_id), "p": policy}
+    with engine.connect() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    return [_row_to_policy_decision(r) for r in rows]
+
+
+def _row_to_approval_request(row: Any) -> ApprovalRequest:
+    d = dict(row._mapping)
+    return _APPROVAL_ADAPTER.validate_python(
+        {
+            "id": d["id"],
+            "subject_ref": d["subject_ref"],
+            "risk_class": d["risk_class"],
+            "question": d["question"],
+            "state": d["state"],
+            "decider": d["decider"],
+            "created_at": d["created_at"],
+            "decided_at": d["decided_at"],
+            "deadline": d["deadline"],
+            "run_attempt_ref": d["run_attempt_ref"],
+        }
+    )
+
+
+def list_approval_requests_for_attempt(
+    engine: Engine, attempt_id: uuid.UUID
+) -> list[ApprovalRequest]:
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT * FROM approval_request WHERE run_attempt_ref = :a "
+                "ORDER BY created_at ASC"
+            ),
+            {"a": str(attempt_id)},
+        ).fetchall()
+    return [_row_to_approval_request(r) for r in rows]
+
+
+def _row_to_budget_ledger_entry(row: Any) -> BudgetLedgerEntry:
+    d = dict(row._mapping)
+    # USD round-trip via Decimal(str(...)) — SQLite's NUMERIC affinity may have
+    # coerced a string-bound value back to REAL on read. Forcing through `str`
+    # recovers the textual decimal representation that the writer bound.
+    pre_call = Decimal(str(d["pre_call_projection_usd"]))
+    actual_raw = d["actual_usd"]
+    actual = Decimal(str(actual_raw)) if actual_raw is not None else None
+    return _BUDGET_ADAPTER.validate_python(
+        {
+            "id": d["id"],
+            "ts": d["ts"],
+            "scope": d["scope"],
+            "run_attempt_ref": d["run_attempt_ref"],
+            "run_attempt_hash_anchor": d["run_attempt_hash_anchor"],
+            "project_ref": d["project_ref"],
+            "model": d["model"],
+            "pre_call_projection_usd": pre_call,
+            "actual_usd": actual,
+            "cache_hit": bool(d["cache_hit"]),
+        }
+    )
+
+
+def list_budget_ledger_entries_for_attempt(
+    engine: Engine, attempt_id: uuid.UUID
+) -> list[BudgetLedgerEntry]:
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT * FROM budget_ledger_entry WHERE run_attempt_ref = :a "
+                "ORDER BY ts ASC"
+            ),
+            {"a": str(attempt_id)},
+        ).fetchall()
+    return [_row_to_budget_ledger_entry(r) for r in rows]
+
+
+def _row_to_sandbox_violation(row: Any) -> SandboxViolation:
+    d = dict(row._mapping)
+    return _SANDBOX_ADAPTER.validate_python(
+        {
+            "id": d["id"],
+            "run_attempt_ref": d["run_attempt_ref"],
+            "ts": d["ts"],
+            "category": d["category"],
+            "detail": json.loads(d["detail"]),
+        }
+    )
+
+
+def list_sandbox_violations_for_attempt(
+    engine: Engine, attempt_id: uuid.UUID
+) -> list[SandboxViolation]:
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT * FROM sandbox_violation WHERE run_attempt_ref = :a "
+                "ORDER BY ts ASC"
+            ),
+            {"a": str(attempt_id)},
+        ).fetchall()
+    return [_row_to_sandbox_violation(r) for r in rows]
+
+
+def _row_to_dispatch_decision(row: Any) -> DispatchDecision:
+    d = dict(row._mapping)
+    return _DISPATCH_ADAPTER.validate_python(
+        {
+            "id": d["id"],
+            "run_attempt_ref": d["run_attempt_ref"],
+            "adapter": d["adapter"],
+            "model": d["model"],
+            "mode": d["mode"],
+            "reason": d["reason"],
+            "evidence_refs": json.loads(d["evidence_refs"]),
+            "decided_at": d["decided_at"],
+        }
+    )
+
+
+def get_dispatch_decision_for_attempt(
+    engine: Engine, attempt_id: uuid.UUID
+) -> DispatchDecision | None:
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT * FROM dispatch_decision WHERE run_attempt_ref = :a"),
+            {"a": str(attempt_id)},
+        ).first()
+    return _row_to_dispatch_decision(row) if row else None
+
+
 __all__ = [
+    "get_dispatch_decision_for_attempt",
     "get_run_attempt",
+    "get_run_attempt_typed",
     "insert_approval_request",
     "insert_audit_event",
     "insert_budget_ledger_entry",
@@ -391,5 +680,12 @@ __all__ = [
     "insert_run_attempt",
     "insert_sandbox_violation",
     "insert_tool_call_record",
+    "list_approval_requests_for_attempt",
+    "list_audit_events_for_attempt",
+    "list_budget_ledger_entries_for_attempt",
+    "list_policy_decisions_for_attempt",
+    "list_run_attempts_for_run",
+    "list_sandbox_violations_for_attempt",
     "list_tool_calls_for_attempt",
+    "list_tool_calls_for_attempt_typed",
 ]

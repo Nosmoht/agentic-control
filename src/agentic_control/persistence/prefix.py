@@ -16,7 +16,7 @@ from sqlalchemy import Engine, text
 
 MIN_PREFIX_LEN = 4
 
-Table = Literal["project", "work_item", "observation", "decision"]
+Table = Literal["project", "work_item", "observation", "decision", "run"]
 
 
 class IdResolutionError(Exception):

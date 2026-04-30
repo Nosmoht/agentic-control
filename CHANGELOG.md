@@ -6,6 +6,22 @@ Versionen folgen [Semantic Versioning](https://semver.org/) für Specs
 (Major = Breaking Change im Datenmodell oder in Modul-Grenzen,
 Minor = additiv, Patch = Klarstellungen/Fixes).
 
+## [Unreleased]
+
+### Added
+
+- **F0008 implementation** — Alembic-Revision `0001b_v1_domain_schema`
+  fügt die Tabellen `run`, `artifact`, `evidence` additiv auf das
+  v0-Schema. Pydantic-Contracts für `Run`, `Artifact`, `Evidence` sowie
+  die discriminated Union `EvidenceSubjectRef` (work_item / run /
+  artifact / decision) in `src/agentic_control/contracts/`.
+  Polymorpher-Ref-Validierungs-Hook `validate_subject_ref(engine, ref)`
+  in `src/agentic_control/persistence/evidence_validator.py` erzwingt
+  ID-Existenz auf Anwendungsebene. CHECK-Constraints auf
+  `evidence.subject_ref` (Prefix-Enum + Format-Länge) als
+  Defense-in-Depth. AC 1–10 abgedeckt durch 37 Tests in
+  `tests/integration/test_v1_schema.py`.
+
 ## [0.3.6-draft] — 2026-04-29
 
 R3-Patch-Welle für die fünf v1a-Bestandsfeatures (F0004, F0005, F0006,

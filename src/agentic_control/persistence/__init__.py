@@ -1,6 +1,7 @@
 """Connection layer (SQLAlchemy Core) — no ORM imports allowed beyond this package."""
 
 from agentic_control.persistence.db import DEFAULT_DB_URL, make_engine, resolve_db_url
+from agentic_control.persistence.evidence_validator import validate_subject_ref
 from agentic_control.persistence.prefix import (
     MIN_PREFIX_LEN,
     AmbiguousPrefixError,
@@ -42,4 +43,5 @@ __all__ = [
     "resolve_db_url",
     "resolve_id",
     "update_work_item_state",
+    "validate_subject_ref",
 ]

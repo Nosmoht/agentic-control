@@ -23,6 +23,22 @@ DecisionState = Literal["proposed", "accepted", "superseded", "rejected"]
 
 WorkItemPriority = Literal["low", "med", "high"]
 
+RunState = Literal[
+    "created",
+    "running",
+    "paused",
+    "waiting",
+    "retrying",
+    "needs_reconciliation",
+    "completed",
+    "failed",
+    "aborted",
+]
+
+ArtifactState = Literal["registered", "available", "consumed", "superseded", "archived"]
+
+EvidenceSubjectKind = Literal["work_item", "run", "artifact", "decision"]
+
 
 WORK_ITEM_TRANSITIONS: Final[dict[WorkItemState, frozenset[WorkItemState]]] = {
     "proposed": frozenset({"accepted", "abandoned"}),

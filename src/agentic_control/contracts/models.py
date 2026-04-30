@@ -14,8 +14,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from agentic_control.contracts.ids import UUIDv7, new_id
 from agentic_control.contracts.lifecycle import (
+    ArtifactState,
     DecisionState,
     ProjectState,
+    RunState,
     WorkItemPriority,
     WorkItemState,
 )
@@ -55,6 +57,26 @@ class Observation(_DomainBase):
     captured_at: datetime = Field(default_factory=_utcnow)
 
 
+class Run(_DomainBase):
+    id: UUIDv7 = Field(default_factory=new_id)
+    work_item_ref: UUIDv7
+    agent: str = Field(min_length=1, max_length=200)
+    state: RunState = "created"
+    budget_cap: float = Field(ge=0.0)
+    result_ref: str | None = None
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
+class Artifact(_DomainBase):
+    id: UUIDv7 = Field(default_factory=new_id)
+    origin_run_ref: UUIDv7
+    kind: str = Field(min_length=1)
+    path_or_ref: str = Field(min_length=1)
+    provenance: str = Field(min_length=1)
+    state: ArtifactState = "registered"
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
 class Decision(_DomainBase):
     id: UUIDv7 = Field(default_factory=new_id)
     subject_ref: UUIDv7
@@ -63,3 +85,12 @@ class Decision(_DomainBase):
     consequence: str = Field(min_length=1)
     state: DecisionState = "proposed"
     created_at: datetime = Field(default_factory=_utcnow)
+
+
+class Evidence(_DomainBase):
+    id: UUIDv7 = Field(default_factory=new_id)
+    subject_ref: str = Field(min_length=1)
+    kind: str = Field(min_length=1)
+    source_ref: UUIDv7 | None = None
+    captured_at: datetime = Field(default_factory=_utcnow)
+    jsonl_blob_ref: str | None = None

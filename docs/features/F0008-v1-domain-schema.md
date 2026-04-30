@@ -2,7 +2,7 @@
 id: F0008
 title: V1 Domain Schema (Run, Artifact, Evidence)
 stage: v1a
-status: proposed
+status: in_progress
 spec_refs: [§5.7]
 adr_refs: [ADR-0001, ADR-0003, ADR-0016]
 ---

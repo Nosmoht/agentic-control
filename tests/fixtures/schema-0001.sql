@@ -134,30 +134,6 @@ CREATE TABLE run_attempt (
 );
 CREATE INDEX ix_run_attempt_run_ref ON run_attempt (run_ref);
 CREATE INDEX ix_run_attempt_started_at ON run_attempt (started_at);
-CREATE TABLE audit_event (
-	id TEXT(36) NOT NULL, 
-	ts TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL, 
-	actor TEXT NOT NULL, 
-	subject_ref TEXT NOT NULL, 
-	event_type TEXT NOT NULL, 
-	before_hash TEXT(64), 
-	after_hash TEXT(64), 
-	before_value TEXT, 
-	after_value TEXT, 
-	reason TEXT, 
-	run_attempt_ref TEXT(36), 
-	PRIMARY KEY (id), 
-	CONSTRAINT fk_audit_event_run_attempt FOREIGN KEY(run_attempt_ref) REFERENCES run_attempt (id) ON DELETE RESTRICT, 
-	CONSTRAINT ck_audit_event_id_uuid_length CHECK (LENGTH(id) = 36), 
-	CONSTRAINT ck_audit_event_actor_nonempty CHECK (LENGTH(actor) >= 1), 
-	CONSTRAINT ck_audit_event_type_enum CHECK (event_type IN ('state_transition', 'config_write', 'reconcile_decision', 'lifecycle_change')), 
-	CONSTRAINT ck_audit_event_before_hash_length CHECK (before_hash IS NULL OR LENGTH(before_hash) = 64), 
-	CONSTRAINT ck_audit_event_after_hash_length CHECK (after_hash IS NULL OR LENGTH(after_hash) = 64), 
-	CONSTRAINT ck_audit_event_subject_ref_prefix CHECK (subject_ref LIKE 'work_item:%' OR subject_ref LIKE 'run:%' OR subject_ref LIKE 'run_attempt:%' OR subject_ref LIKE 'decision:%' OR subject_ref LIKE 'config/%'), 
-	CONSTRAINT ck_audit_event_subject_ref_format CHECK ((subject_ref LIKE 'work_item:%' AND LENGTH(subject_ref) = 46) OR (subject_ref LIKE 'run:%' AND LENGTH(subject_ref) = 40) OR (subject_ref LIKE 'run_attempt:%' AND LENGTH(subject_ref) = 48) OR (subject_ref LIKE 'decision:%' AND LENGTH(subject_ref) = 45) OR (subject_ref LIKE 'config/%' AND LENGTH(subject_ref) >= 8))
-);
-CREATE INDEX ix_audit_event_subject_ref ON audit_event (subject_ref, ts);
-CREATE INDEX ix_audit_event_run_attempt_ref ON audit_event (run_attempt_ref);
 CREATE TABLE approval_request (
 	id TEXT(36) NOT NULL, 
 	subject_ref TEXT(36) NOT NULL, 
@@ -282,3 +258,27 @@ CREATE TABLE dispatch_decision (
 	CONSTRAINT ck_dispatch_decision_evidence_refs_json CHECK (evidence_refs IS NULL OR json_valid(evidence_refs)), 
 	UNIQUE (run_attempt_ref)
 );
+CREATE TABLE IF NOT EXISTS "audit_event" (
+	id TEXT(36) NOT NULL, 
+	ts TEXT DEFAULT (CURRENT_TIMESTAMP) NOT NULL, 
+	actor TEXT NOT NULL, 
+	subject_ref TEXT NOT NULL, 
+	event_type TEXT NOT NULL, 
+	before_hash TEXT(64), 
+	after_hash TEXT(64), 
+	before_value TEXT, 
+	after_value TEXT, 
+	reason TEXT, 
+	run_attempt_ref TEXT(36), 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_audit_event_before_hash_length CHECK (before_hash IS NULL OR LENGTH(before_hash) = 64), 
+	CONSTRAINT fk_audit_event_run_attempt FOREIGN KEY(run_attempt_ref) REFERENCES run_attempt (id) ON DELETE RESTRICT, 
+	CONSTRAINT ck_audit_event_after_hash_length CHECK (after_hash IS NULL OR LENGTH(after_hash) = 64), 
+	CONSTRAINT ck_audit_event_actor_nonempty CHECK (LENGTH(actor) >= 1), 
+	CONSTRAINT ck_audit_event_type_enum CHECK (event_type IN ('state_transition', 'config_write', 'reconcile_decision', 'lifecycle_change')), 
+	CONSTRAINT ck_audit_event_id_uuid_length CHECK (LENGTH(id) = 36), 
+	CONSTRAINT ck_audit_event_subject_ref_prefix CHECK (subject_ref LIKE 'work_item:%' OR subject_ref LIKE 'run:%' OR subject_ref LIKE 'run_attempt:%' OR subject_ref LIKE 'tool_call_record:%' OR subject_ref LIKE 'decision:%' OR subject_ref LIKE 'config/%'), 
+	CONSTRAINT ck_audit_event_subject_ref_format CHECK ((subject_ref LIKE 'work_item:%' AND LENGTH(subject_ref) = 46) OR (subject_ref LIKE 'run:%' AND LENGTH(subject_ref) = 40) OR (subject_ref LIKE 'run_attempt:%' AND LENGTH(subject_ref) = 48) OR (subject_ref LIKE 'tool_call_record:%' AND LENGTH(subject_ref) = 53) OR (subject_ref LIKE 'decision:%' AND LENGTH(subject_ref) = 45) OR (subject_ref LIKE 'config/%' AND LENGTH(subject_ref) >= 8))
+);
+CREATE INDEX ix_audit_event_subject_ref ON audit_event (subject_ref, ts);
+CREATE INDEX ix_audit_event_run_attempt_ref ON audit_event (run_attempt_ref);

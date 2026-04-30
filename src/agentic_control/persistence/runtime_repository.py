@@ -668,6 +668,91 @@ def get_dispatch_decision_for_attempt(
     return _row_to_dispatch_decision(row) if row else None
 
 
+# ---------- Reconcile read/write helpers (F0006c PR3) ----------
+
+
+def list_runs_in_state(engine: Engine, state: str) -> list[dict[str, Any]]:
+    """Raw rows for runs in the given state, ordered by created_at ASC.
+
+    Returns dicts because the v1a `Run` model has no typed-read helper
+    yet (kept consistent with `cli/_inspect.py:_load_run_row`).
+    """
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text("SELECT * FROM run WHERE state = :s ORDER BY created_at ASC"),
+            {"s": state},
+        ).fetchall()
+    return [dict(r._mapping) for r in rows]
+
+
+def update_run_state(engine: Engine, run_id: uuid.UUID, new_state: str) -> bool:
+    """Update run.state. Returns True if a row was changed."""
+    with engine.begin() as conn:
+        result = conn.execute(
+            text("UPDATE run SET state = :s WHERE id = :id"),
+            {"s": new_state, "id": str(run_id)},
+        )
+    return result.rowcount > 0
+
+
+def mark_running_runs_as_needs_reconciliation(engine: Engine) -> int:
+    """Bulk transition all `running` runs to `needs_reconciliation`.
+
+    Used by ``agentctl runs mark-pending-reconcile --all-running``.
+    Returns the number of rows transitioned (zero on a second invocation
+    = idempotent; once a run is in ``needs_reconciliation`` it is no
+    longer ``running`` and so is not picked up again).
+    """
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "UPDATE run SET state = 'needs_reconciliation' "
+                "WHERE state = 'running'"
+            )
+        )
+    return result.rowcount
+
+
+def list_unreconciled_local_only_tool_calls(
+    engine: Engine, run_id: uuid.UUID
+) -> list[ToolCallRecord]:
+    """Find local-only tool-calls under any attempt of this run that have
+    not yet been resolved by a ``reconcile_decision`` AuditEvent.
+
+    A tool-call is "unreconciled" iff:
+    - effect_class = 'local_only'
+    - no ``audit_event`` row exists with
+      ``subject_ref = 'tool_call_record:<id>'`` and
+      ``event_type = 'reconcile_decision'``
+
+    ``output_ref IS NULL`` is NOT used as the gate — ``output_ref`` may
+    be set by the runtime to the local result hash even before reconcile,
+    so relying on it would miss legitimately-not-yet-reconciled calls.
+    The AuditEvent presence is the canonical reconcile marker (idempotency
+    contract, F0006 AC 10).
+
+    Ordered by ``(run_attempt_ref ASC, tool_call_ordinal ASC)`` for
+    stable interactive iteration.
+    """
+    sql = text(
+        """
+        SELECT tc.* FROM tool_call_record tc
+        JOIN run_attempt ra ON ra.id = tc.run_attempt_ref
+        WHERE ra.run_ref = :run_id
+          AND tc.effect_class = 'local_only'
+          AND NOT EXISTS (
+              SELECT 1 FROM audit_event ae
+              WHERE ae.subject_ref = 'tool_call_record:' || tc.id
+                AND ae.event_type = 'reconcile_decision'
+          )
+        ORDER BY tc.run_attempt_ref ASC, tc.tool_call_ordinal ASC
+        """
+    )
+    with engine.connect() as conn:
+        rows = conn.execute(sql, {"run_id": str(run_id)}).fetchall()
+    return [_row_to_tool_call(r) for r in rows]
+
+
 __all__ = [
     "get_dispatch_decision_for_attempt",
     "get_run_attempt",
@@ -685,7 +770,11 @@ __all__ = [
     "list_budget_ledger_entries_for_attempt",
     "list_policy_decisions_for_attempt",
     "list_run_attempts_for_run",
+    "list_runs_in_state",
     "list_sandbox_violations_for_attempt",
     "list_tool_calls_for_attempt",
     "list_tool_calls_for_attempt_typed",
+    "list_unreconciled_local_only_tool_calls",
+    "mark_running_runs_as_needs_reconciliation",
+    "update_run_state",
 ]

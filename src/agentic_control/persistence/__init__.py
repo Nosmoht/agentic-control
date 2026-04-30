@@ -44,9 +44,13 @@ from agentic_control.persistence.runtime_repository import (
     list_budget_ledger_entries_for_attempt,
     list_policy_decisions_for_attempt,
     list_run_attempts_for_run,
+    list_runs_in_state,
     list_sandbox_violations_for_attempt,
     list_tool_calls_for_attempt,
     list_tool_calls_for_attempt_typed,
+    list_unreconciled_local_only_tool_calls,
+    mark_running_runs_as_needs_reconciliation,
+    update_run_state,
 )
 
 __all__ = [
@@ -82,14 +86,18 @@ __all__ = [
     "list_observations_for_source",
     "list_policy_decisions_for_attempt",
     "list_run_attempts_for_run",
+    "list_runs_in_state",
     "list_sandbox_violations_for_attempt",
     "list_tool_calls_for_attempt",
     "list_tool_calls_for_attempt_typed",
+    "list_unreconciled_local_only_tool_calls",
     "make_engine",
+    "mark_running_runs_as_needs_reconciliation",
     "open_runlog_fd",
     "resolve_db_url",
     "resolve_id",
     "runlog_writer",
+    "update_run_state",
     "update_work_item_state",
     "validate_subject_ref",
 ]

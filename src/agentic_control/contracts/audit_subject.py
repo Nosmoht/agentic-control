@@ -21,7 +21,7 @@ from typing import Annotated
 from pydantic import AfterValidator
 
 DOMAIN_REF_PATTERN = re.compile(
-    r"^(work_item|run|run_attempt|decision):[0-9a-f-]{36}$"
+    r"^(work_item|run|run_attempt|tool_call_record|decision):[0-9a-f-]{36}$"
 )
 CONFIG_PATH_PATTERN = re.compile(r"^config/[A-Za-z0-9_./\-]+$")
 
@@ -33,8 +33,8 @@ def _validate_audit_subject_ref(value: str) -> str:
         return value
     raise ValueError(
         f"audit_event.subject_ref must be either '<kind>:<uuid>' "
-        f"(kind in work_item|run|run_attempt|decision) or a path under "
-        f"'config/'; got {value!r}"
+        f"(kind in work_item|run|run_attempt|tool_call_record|decision) "
+        f"or a path under 'config/'; got {value!r}"
     )
 
 

@@ -71,6 +71,51 @@ Minor = additiv, Patch = Klarstellungen/Fixes).
 
 ### Added
 
+- **F0006c implementation** (PR3 of F0006: Recovery-Pfad — `runs
+  reconcile`, `runs mark-pending-reconcile`, `runs list
+  --pending-reconcile`) — schließt AC 5 (interaktive Reconcile mit
+  drei Optionen `erfolgt | unsicher | nicht_erfolgt` pro nicht-
+  persistierten Local-Only-Effekt + AuditEvent-Schreib + Lifecycle-
+  Reset auf `running`), AC 7 (explizites
+  `mark-pending-reconcile --all-running` Kommando als Closure des
+  Litestream-Restore-Hooks; `runs list --pending-reconcile` Listing)
+  und AC 10 (Idempotenz-Garantie über `audit_event`-Existenz-Check
+  pro Tool-Call vor jedem Insert):
+  - Migration `0003_audit_subject_tool_call.py` erweitert die
+    `audit_event.subject_ref` CHECK-Constraints um den Prefix
+    `tool_call_record:<uuid>` (54-char Length). Reconcile schreibt
+    AuditEvents mit diesem subject_ref-Format. Index-Drop+Recreate
+    am Ende der Migration sichert deterministische Schema-Dump-
+    Reihenfolge nach `batch_alter_table`.
+  - 4 neue Repository-Helpers in
+    `src/agentic_control/persistence/runtime_repository.py`:
+    `list_runs_in_state`, `update_run_state`,
+    `mark_running_runs_as_needs_reconciliation`,
+    `list_unreconciled_local_only_tool_calls` (Anti-Join gegen
+    existierende `reconcile_decision`-AuditEvents — die Audit-
+    Existenz ist die kanonische Reconcile-Markierung, nicht
+    `output_ref IS NULL`).
+  - Neuer CLI-Command-Modul
+    `src/agentic_control/cli/_reconcile.py` registriert
+    `reconcile`, `mark-pending-reconcile`, `list` auf dem
+    bestehenden `runs` Typer-Subapp. `reconcile` nutzt
+    `typer.prompt` mit Re-Prompt-Loop bei ungültiger Eingabe
+    (kein Default — jeder Effekt muss explizit gewählt werden,
+    auch `unsicher`).
+  - Lifecycle-Entscheidung dokumentiert: post-reconcile geht
+    Run immer auf `running`. ADR-0011 §126-128 nennt auch
+    `failed` als möglichen Zielzustand, aber die manuelle
+    Eskalation ist eine eigene `runs transition`-Operation
+    (Folge-Feature), nicht Teil dieses PR.
+  - 16 Integration-Tests in
+    `tests/integration/test_runs_reconcile.py` decken alle drei
+    Optionen, Re-Prompt-bei-Invalid, Wrong-State-Error, No-Pending-
+    Idempotency, Mark-Pending-Idempotency, Flag-Required-Errors,
+    Multi-Tool-Call-Ordering und AC-10-Re-Run-No-Op ab. Suite
+    jetzt 147 Tests.
+
+### Added
+
 - **F0006b implementation** (PR2 of F0006: `agentctl runs inspect <id>`)
   — neuer Typer-Subapp `runs` mit `inspect`-Befehl, Pydantic-typed
   Read-Layer für die acht Runtime-Records-Tabellen, Stub-Alert-Hook

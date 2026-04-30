@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import typer
 
-from agentic_control.cli import _add, _inspect, _next, _show, _transition
+from agentic_control.cli import _add, _inspect, _next, _reconcile, _show, _transition
 
 app = typer.Typer(
     name="agentctl",
@@ -41,6 +41,7 @@ runs = typer.Typer(
 app.add_typer(runs, name="runs")
 
 _inspect.register(runs)
+_reconcile.register(runs)
 
 
 if __name__ == "__main__":

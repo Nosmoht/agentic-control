@@ -8,6 +8,23 @@ Minor = additiv, Patch = Klarstellungen/Fixes).
 
 ## [Unreleased]
 
+### Changed
+
+- **F0006 R3-Closure Pre-Implementation** (2026-04-30) — zwei R3-
+  Lücken vor PR1-Start geschlossen:
+  - **AC 7 (Litestream-Restore-Detektion)**: ersetzt durch
+    explizites Kommando `agentctl runs mark-pending-reconcile
+    --all-running`. Kein automatischer Boot-Hook, kein Daemon. Passt
+    zur Spec-§10.4-Vorgabe „Restore-Drill quartalsweise manuell".
+    Idempotenz erzwungen.
+  - **AC 8 (`O_APPEND`-Atomarität)**: Hard-Limit 4096 B pro JSONL-
+    Runlog-Zeile (POSIX-`PIPE_BUF`). Pydantic-Validator
+    `RunlogEntry` lehnt grössere Zeilen ab; Writer nutzt
+    `os.write(fd, line)` in einer Syscall mit `O_APPEND`-fd.
+  - AC 5 (`unsicher`-Option) hat **kein** R3-Gap — bereits in
+    ADR-0011 §122-124 spezifiziert (manuell prüfen + outcome
+    `unknown`); Provider-Side-Wrapper ist explizit deferred.
+
 ### Added
 
 - **F0008 implementation** — Alembic-Revision `0001b_v1_domain_schema`

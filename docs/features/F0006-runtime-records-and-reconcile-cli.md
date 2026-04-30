@@ -68,6 +68,13 @@ zwischen F0001 (v0-Schema) und F0003/F0004/F0005.
     `src/agentic_control/contracts/runlog.py` und ist Single-Source
     (ADR-0018). Validator schlägt fehl bei unbekanntem `event_type`
     oder fehlenden Pflichtfeldern.
+  - **Hard-Limit 4096 Bytes pro serialisierter Zeile** (inkl. trailing
+    `\n`) als Closure der R3-Lücke V0.3.6-draft AC 8: POSIX `O_APPEND`
+    garantiert Atomarität nur für Writes ≤ `PIPE_BUF` (4 KB).
+    Pydantic-Validator wirft `RunlogLineTooLarge`, wenn
+    `len(model.model_dump_json().encode() + b"\n") > 4096`. Writer
+    nutzt `os.write(fd, line)` mit per `O_APPEND` geöffnetem fd in
+    einer einzigen Syscall.
 - **JSONL-Budget-Ledger pro Tag** als Tagesdatei
   `~/.agentic-control/logs/budget/<YYYY-MM-DD>.jsonl` (Aggregation
   der `BudgetLedgerEntry`-Rows zur Tagessicht).
@@ -87,9 +94,14 @@ zwischen F0001 (v0-Schema) und F0003/F0004/F0005.
 - **CLI-Befehl `agentctl audit show [--subject <ref>] [--since
   <date>]`** filtert Audit-Events; zeigt Diff-Hashes für Config-
   Writes (ADR-0016).
-- **`needs_reconciliation`-Erkennung** beim Start: nach Litestream-
-  Restore wird jeder offene Run als `needs_reconciliation` markiert,
-  bis er via `runs reconcile` abgeschlossen ist (Spec §5.7, §10.4).
+- **`needs_reconciliation`-Erkennung via explizites Kommando**
+  (V0.3.6-draft Closure R3-Lücke AC 7): `agentctl runs mark-pending-
+  reconcile --all-running` setzt jeden Run in `state=running` auf
+  `state=needs_reconciliation`. Nutzer ruft es nach Litestream-
+  Restore manuell auf (passt zur Spec-Vorgabe „Restore-Drill
+  quartalsweise manuell, dokumentiertes Ergebnis", §10.4). Kein
+  automatischer Boot-Hook, kein Daemon, kein Heartbeat. Eigenentscheidung
+  V0.3.6-draft: minimal MVP-Code, deterministisch, plattform-agnostisch.
 
 ## Out of Scope
 
@@ -131,13 +143,24 @@ zwischen F0001 (v0-Schema) und F0003/F0004/F0005.
 6. `agentctl audit show --subject config/dispatch/routing-pins.yaml`
    listet alle `AuditEvent`-Rows mit `before_hash`/`after_hash` und
    Actor-Spalte (Voraussetzung für ADR-0016-Audit-Trail).
-7. Nach Litestream-Restore auf einem frischen Host markiert ein
-   Startup-Hook alle Runs in `state=running` als
+7. **Explizites Reconcile-Markierungs-Kommando** (V0.3.6-draft
+   Closure R3-Lücke): `agentctl runs mark-pending-reconcile --all-
+   running` setzt jeden Run in `state=running` auf
    `state=needs_reconciliation`; `agentctl runs list --pending-
-   reconcile` zeigt diese Liste.
+   reconcile` zeigt diese Liste. Nutzer ruft das Kommando nach
+   Litestream-Restore manuell auf. **Idempotenz**: zweite Ausführung
+   ändert nichts, schreibt keinen zusätzlichen `AuditEvent`. Tests:
+   nach `mark-pending-reconcile` zeigen Runs den korrekten neuen
+   Lifecycle-State; vorher in `completed`/`failed`/`aborted`-State
+   stehende Runs bleiben unverändert.
 8. JSONL-Runlog pro RunAttempt ist append-only und übersteht einen
-   Crash mid-write (kein partieller Eintrag, weil Append-Semantik
-   per `O_APPEND`).
+   Crash mid-write (kein partieller Eintrag). **Garantie via
+   POSIX-`O_APPEND`-Atomarität für Writes ≤ `PIPE_BUF` (4096 B)**:
+   Pydantic-Validator `RunlogEntry` lehnt Zeilen > 4096 B (inkl.
+   `\n`) mit `RunlogLineTooLarge` ab, Writer nutzt `os.write(fd,
+   line)` in einer Syscall (V0.3.6-draft Closure R3-Lücke AC 8).
+   Negative-Test: Insert eines `RunlogEntry`, dessen JSON-
+   Serialisierung > 4096 B ist, schlägt vor dem Schreiben fehl.
 9. JSONL-Budget-Ledger aggregiert die Tages-`BudgetLedgerEntry`-
    Rows beim Tageswechsel automatisch (Cron oder Lazy-Aggregation
    beim ersten `agentctl costs today`-Aufruf).

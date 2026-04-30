@@ -344,6 +344,15 @@ def test_inspect_output_json_emits_valid_dict(
     assert attempt_view["attempt"]["agent"] == "claude"
     assert len(attempt_view["tool_calls"]) == 2
 
+    # Decimal preserved as string (not float) per ADR-0018 invariant.
+    budget_entry = attempt_view["budget_entries"][0]
+    assert budget_entry["pre_call_projection_usd"] == "0.050000"
+    assert budget_entry["actual_usd"] == "0.040000"
+
+    # Aware-UTC datetime preserved with offset (ISO-8601 form).
+    started = attempt_view["attempt"]["started_at"]
+    assert started.endswith("+00:00") or started.endswith("Z"), started
+
 
 # ---------- Empty run ----------
 
@@ -355,6 +364,56 @@ def test_inspect_run_with_no_attempts_exits_zero(
     result = runner.invoke(app, ["runs", "inspect", str(run_id)])
     assert result.exit_code == 0
     assert "(no attempts)" in result.output
+
+
+# ---------- AC 13 follow-up: per-violation alert contract ----------
+
+
+def test_ac13_alert_fires_per_violation(
+    runner: CliRunner, migrated_engine: Engine, caplog: pytest.LogCaptureFixture
+) -> None:
+    run_id = _seed_run(migrated_engine)
+    attempt = _seed_attempt(migrated_engine, run_id)
+    for cat in ("egress_denied", "fs_write_denied"):
+        insert_sandbox_violation(
+            migrated_engine,
+            SandboxViolation(run_attempt_ref=attempt.id, category=cat, detail={}),
+        )
+    with caplog.at_level(logging.WARNING, logger="agentic_control.alerts"):
+        result = runner.invoke(app, ["runs", "inspect", str(run_id)])
+    assert result.exit_code == 0, result.output
+    warns = [r for r in caplog.records if r.name == "agentic_control.alerts"]
+    assert len(warns) == 2
+    categories_seen = {r.getMessage() for r in warns}
+    assert any("egress_denied" in m for m in categories_seen)
+    assert any("fs_write_denied" in m for m in categories_seen)
+
+
+# ---------- AC 12 follow-up: filter with no matches surfaces the empty set ----------
+
+
+def test_ac12_filter_with_no_matches_shows_zero_count(
+    runner: CliRunner, migrated_engine: Engine
+) -> None:
+    """Per #11 review: a `--policy <tag>` filter that matches no rows must
+    still surface the filter context so the user can tell their query ran."""
+    run_id = _seed_run(migrated_engine)
+    attempt = _seed_attempt(migrated_engine, run_id)
+    insert_policy_decision(
+        migrated_engine,
+        PolicyDecisionGeneric(
+            policy="admission",
+            subject_ref=f"work_item:{new_id()}",
+            inputs={},
+            output={},
+            run_attempt_ref=attempt.id,
+        ),
+    )
+    result = runner.invoke(
+        app, ["runs", "inspect", str(run_id), "--policy", "tool_risk_match"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "policies (0) [filter=tool_risk_match]" in result.output
 
 
 # ---------- Audit events display ----------

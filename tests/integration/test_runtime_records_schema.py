@@ -6,6 +6,8 @@ import os
 import sqlite3
 import subprocess
 import sys
+from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -29,6 +31,7 @@ from agentic_control.contracts import (
 from agentic_control.contracts.runtime_records import AuditEvent
 from agentic_control.persistence import (
     RepositoryError,
+    get_run_attempt,
     insert_approval_request,
     insert_audit_event,
     insert_budget_ledger_entry,
@@ -39,6 +42,7 @@ from agentic_control.persistence import (
     insert_sandbox_violation,
     insert_tool_call_record,
     insert_work_item,
+    list_tool_calls_for_attempt,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -81,7 +85,13 @@ def _seed_run_attempt(engine: Engine) -> tuple[Run, RunAttempt]:
             ),
             {"id": str(run_id), "w": str(w.id)},
         )
-    run = Run(id=run_id, work_item_ref=w.id, agent="claude", state="running", budget_cap=1.0)
+    run = Run(
+        id=run_id,
+        work_item_ref=w.id,
+        agent="claude",
+        state="running",
+        budget_cap=Decimal("1.00"),
+    )
     attempt = insert_run_attempt(
         engine,
         RunAttempt(
@@ -434,11 +444,59 @@ def test_budget_ledger_entry_roundtrip(migrated_engine: Engine) -> None:
             run_attempt_ref=attempt.id,
             run_attempt_hash_anchor="abcdef012345",
             model="claude-sonnet-4-6",
-            pre_call_projection_usd=0.05,
-            actual_usd=0.04,
+            pre_call_projection_usd=Decimal("0.05"),
+            actual_usd=Decimal("0.04"),
             cache_hit=True,
         ),
     )
+
+
+def test_budget_ledger_decimal_round_trip_preserves_precision(
+    migrated_engine: Engine,
+) -> None:
+    """Six-decimal precision must survive the SQLite NUMERIC round trip.
+
+    SQLite NUMERIC affinity converts a parseable string ("0.000001") to REAL,
+    so the raw row may come back as a float in scientific notation
+    (``1e-06``). Decimal(str(...)) re-normalises the value losslessly for
+    the precisions we use (≤ 6 decimal places). PR4's aggregator will use
+    the same recovery pattern when reading the ledger.
+    """
+    _, attempt = _seed_run_attempt(migrated_engine)
+    entry = insert_budget_ledger_entry(
+        migrated_engine,
+        BudgetLedgerEntry(
+            scope="request",
+            run_attempt_ref=attempt.id,
+            run_attempt_hash_anchor="abcdef012345",
+            model="claude-sonnet-4-6",
+            pre_call_projection_usd=Decimal("0.123456"),
+            actual_usd=Decimal("0.000001"),
+        ),
+    )
+    with migrated_engine.connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT pre_call_projection_usd, actual_usd "
+                "FROM budget_ledger_entry WHERE id=:id"
+            ),
+            {"id": str(entry.id)},
+        ).first()
+    assert row is not None
+    assert Decimal(str(row[0])) == Decimal("0.123456")
+    assert Decimal(str(row[1])) == Decimal("0.000001")
+
+
+def test_budget_ledger_quantizes_excess_precision() -> None:
+    """Inputs deeper than micro-USD are quantised on construction."""
+    entry = BudgetLedgerEntry(
+        scope="request",
+        run_attempt_ref=new_id(),
+        run_attempt_hash_anchor="abcdef012345",
+        model="claude-sonnet-4-6",
+        pre_call_projection_usd=Decimal("0.1234567899"),
+    )
+    assert entry.pre_call_projection_usd == Decimal("0.123457")
 
 
 def test_sandbox_violation_roundtrip(migrated_engine: Engine) -> None:
@@ -453,10 +511,15 @@ def test_sandbox_violation_roundtrip(migrated_engine: Engine) -> None:
     )
 
 
-# ---------- Idempotent migration (rerun head) ----------
+# ---------- Idempotent migration (rerun head, schema unchanged) ----------
 
 
 def test_idempotent_migration(db_url: str, migrated_engine: Engine) -> None:
+    """A second `alembic upgrade head` must succeed AND produce identical schema."""
+    db_path = _sqlite_path(migrated_engine)
+    schema_before = subprocess.run(
+        ["sqlite3", db_path, ".schema"], capture_output=True, text=True, check=True
+    ).stdout
     result = subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         cwd=REPO_ROOT,
@@ -465,6 +528,140 @@ def test_idempotent_migration(db_url: str, migrated_engine: Engine) -> None:
         text=True,
     )
     assert result.returncode == 0, result.stderr
+    schema_after = subprocess.run(
+        ["sqlite3", db_path, ".schema"], capture_output=True, text=True, check=True
+    ).stdout
+    assert schema_before == schema_after, "second upgrade head produced schema drift"
+
+
+# ---------- Read-path coverage (get_run_attempt, list_tool_calls_for_attempt) ----------
+
+
+def test_get_run_attempt_returns_inserted_row(migrated_engine: Engine) -> None:
+    _, attempt = _seed_run_attempt(migrated_engine)
+    row = get_run_attempt(migrated_engine, str(attempt.id))
+    assert row is not None
+    assert row["id"] == str(attempt.id)
+    assert row["agent"] == "claude"
+    assert row["attempt_ordinal"] == 1
+
+
+def test_get_run_attempt_returns_none_for_missing(migrated_engine: Engine) -> None:
+    assert get_run_attempt(migrated_engine, str(new_id())) is None
+
+
+def test_list_tool_calls_orders_by_ordinal(migrated_engine: Engine) -> None:
+    _, attempt = _seed_run_attempt(migrated_engine)
+    for ordinal in (3, 1, 2):  # insert out of order
+        insert_tool_call_record(
+            migrated_engine,
+            ToolCallRecord(
+                run_attempt_ref=attempt.id,
+                tool_call_ordinal=ordinal,
+                tool_name="x",
+                input_hash="abcdef012345",
+                effect_class="natural",
+            ),
+        )
+    rows = list_tool_calls_for_attempt(migrated_engine, str(attempt.id))
+    assert [r["tool_call_ordinal"] for r in rows] == [1, 2, 3]
+
+
+# ---------- ApprovalRequest decided_at invariant (G) ----------
+
+
+def test_approval_request_pending_with_decided_at_rejected() -> None:
+    """state=waiting_for_approval forbids decided_at being set."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="decided_at"):
+        ApprovalRequest(
+            subject_ref=new_id(),
+            risk_class="high",
+            question="ok?",
+            state="waiting_for_approval",
+            decided_at=datetime(2026, 4, 30, 12, 0, 0),
+        )
+
+
+def test_approval_request_terminal_without_decided_at_rejected() -> None:
+    """state=approved/rejected/etc. requires decided_at."""
+    from pydantic import ValidationError
+
+    for terminal in ("approved", "rejected", "timed_out_rejected", "abandoned"):
+        with pytest.raises(ValidationError, match="decided_at"):
+            ApprovalRequest(
+                subject_ref=new_id(),
+                risk_class="high",
+                question="ok?",
+                state=terminal,  # type: ignore[arg-type]
+            )
+
+
+def test_approval_request_terminal_with_decided_at_accepted() -> None:
+    ApprovalRequest(
+        subject_ref=new_id(),
+        risk_class="high",
+        question="ok?",
+        state="approved",
+        decided_at=datetime(2026, 4, 30, 12, 0, 0),
+        decider="user",
+    )
+
+
+# ---------- Hex12 + EvidenceRef validators ----------
+
+
+def test_run_attempt_rejects_non_hex_prompt_hash() -> None:
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="hex"):
+        RunAttempt(
+            run_ref=new_id(),
+            attempt_ordinal=1,
+            agent="x",
+            model="m",
+            sandbox_profile="standard",
+            prompt_hash="ZZZZZZZZZZZZ",  # 12 chars but not hex
+            logs_ref="/tmp/x.jsonl",
+        )
+
+
+def test_dispatch_decision_evidence_refs_validate_format() -> None:
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="evidence:"):
+        DispatchDecision(
+            run_attempt_ref=new_id(),
+            adapter="claude_code",
+            model="m",
+            mode="pinned",
+            reason="pin",
+            evidence_refs=["not-a-valid-ref"],
+        )
+
+
+def test_dispatch_decision_evidence_refs_round_trip(migrated_engine: Engine) -> None:
+    _, attempt = _seed_run_attempt(migrated_engine)
+    ref = f"evidence:{new_id()}"
+    insert_dispatch_decision(
+        migrated_engine,
+        DispatchDecision(
+            run_attempt_ref=attempt.id,
+            adapter="claude_code",
+            model="claude-sonnet-4-6",
+            mode="pinned",
+            reason="pin",
+            evidence_refs=[ref],
+        ),
+    )
+    with migrated_engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT evidence_refs FROM dispatch_decision WHERE run_attempt_ref=:a"),
+            {"a": str(attempt.id)},
+        ).first()
+    assert row is not None
+    assert row[0] == f'["{ref}"]'
 
 
 # ---------- Schema dump stability vs. fixture ----------

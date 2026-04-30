@@ -21,7 +21,7 @@ from typing import Annotated
 from pydantic import AfterValidator
 
 DOMAIN_REF_PATTERN = re.compile(
-    r"^(work_item|run|run_attempt|decision):[0-9a-fA-F-]{36}$"
+    r"^(work_item|run|run_attempt|decision):[0-9a-f-]{36}$"
 )
 CONFIG_PATH_PATTERN = re.compile(r"^config/[A-Za-z0-9_./\-]+$")
 

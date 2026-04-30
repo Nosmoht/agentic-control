@@ -25,6 +25,50 @@ Minor = additiv, Patch = Klarstellungen/Fixes).
     ADR-0011 §122-124 spezifiziert (manuell prüfen + outcome
     `unknown`); Provider-Side-Wrapper ist explizit deferred.
 
+### Changed
+
+- **F0006a Staff-Review-Followup** (2026-04-30) — Python-Staff-
+  Engineer-Review hat 14 Findings zurückgegeben (4 SHOULD-FIX,
+  10 NICE-TO-FIX, 3 refuted). Alle umgesetzt:
+  - **#7 SHOULD-FIX**: `audit_subject.py` UUID-Regex auf lowercase-
+    only (`[0-9a-f-]{36}`) — UUIDv7 (ADR-0019) rendert lowercase;
+    silent latent bug bei upstream-uppercased UUIDs geschlossen.
+  - **#2 SHOULD-FIX**: USD als `Decimal` end-to-end (vier Felder in
+    `BudgetLedgerEntry` + `BudgetEntryEvent`, plus `Run.budget_cap`
+    aus F0008 zur Konsistenz). Repository serialisiert via
+    `str(decimal)` an SQLite NUMERIC; Pydantic quantisiert auf
+    `0.000001` (Mikro-USD). Vermeidet IEEE-754-Akkumulationsfehler
+    im Audit-Ledger.
+  - **#4 SHOULD-FIX**: `runlog_writer.py` wirft `OSError` bei
+    Short-Write statt stillschweigend torn-line zu produzieren.
+    Doc-String + Feature-AC 8 korrigiert: `PIPE_BUF` bindet nur
+    Pipes/FIFOs; Linux/macOS regular-file `O_APPEND` ist atomar
+    unbounded. Der 4 KB-Cap ist Sanity-Schutz gegen Bloat, nicht
+    Atomaritäts-Quelle.
+  - **A SHOULD-FIX**: `_utcnow()` verwendet `datetime.now(tz=UTC)`
+    in `runtime_records.py` und `models.py` (F0001/F0008). Naive
+    Timestamps gaben falsches Ordering auf non-UTC-Hosts post-DST.
+  - **NICE-TO-FIX-Sweep**: `RunlogLineTooLarge`-Alias entfernt
+    zugunsten `RunlogLineTooLargeError` (Ruff N818); `Hex12`/
+    `Hex64`/`HashAnchor` als Annotated-Typen in
+    `contracts/hashes.py` für `prompt_hash`/`input_hash`/
+    `args_hash`/`run_attempt_hash_anchor`; `EvidenceRef`-
+    Annotated-Typ in `contracts/evidence.py` für
+    `dispatch_decision.evidence_refs: list[EvidenceRef]`;
+    `decided_at` ↔ `state` Invariant via `@model_validator`
+    auf `ApprovalRequest`; `RunAttempt.exit_code` Range
+    -1..255; `evidence_refs` always-`[]` (nicht NULL) im Repo;
+    `get_run_attempt`/`list_tool_calls_for_attempt` mit
+    Read-Asymmetrie-Doc; `test_idempotent_migration` vergleicht
+    jetzt Schema vor/nach zweitem `upgrade head`. 11 zusätzliche
+    Tests (Decimal-Round-Trip, Quantize, Hex-Validation,
+    EvidenceRef-Validation, ApprovalRequest-Invariant, Read-Path-
+    Coverage).
+  - **Refuted**: Module-globale `TypeAdapter` (Pydantic-Pattern,
+    xdist-Process-Isolation), Multi-Literal-Discriminator-Arme
+    (Pydantic v2 native), Subprocess-`alembic`-Calls (Test-Suite
+    klein genug).
+
 ### Added
 
 - **F0006a implementation** (Schema + Contracts + Repository + Runlog

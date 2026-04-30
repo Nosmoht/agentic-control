@@ -1,10 +1,16 @@
 """Append-only JSONL Runlog writer (F0006 AC 8).
 
-Single-syscall write under POSIX ``O_APPEND``. The contract layer
-(`contracts.runlog.serialise_runlog_line`) enforces the 4 KB cap before
-the bytes ever reach this module, so the ``os.write(fd, payload)`` call
-is guaranteed atomic w.r.t. other writers and crash boundaries (POSIX
-``PIPE_BUF`` = 4096 on Linux/macOS).
+Single-syscall write under POSIX ``O_APPEND``. Linux ``open(2)`` and
+macOS APFS make the seek-to-end + write atomic for any size on a
+regular file when ``O_APPEND`` is set; ``PIPE_BUF`` only bounds
+atomicity on pipes/FIFOs. The 4 KB cap enforced upstream by
+``serialise_runlog_line`` is a sanity guard against bloated events,
+not the source of atomicity.
+
+Short-write handling: on a regular file a partial ``os.write`` indicates
+disk-full or signal-interrupt; the contract is **fail-loud**, because
+re-issuing the remainder would split the line into two append-blocks
+and break the atomicity invariant for parallel readers.
 
 Usage:
 
@@ -36,10 +42,18 @@ def open_runlog_fd(path: Path) -> int:
 def append_runlog_line(fd: int, entry: RunlogEntry) -> int:
     """Serialise *entry* via the 4 KB-capped helper and emit one ``os.write``.
 
-    Returns the number of bytes written.
+    Returns the number of bytes written. Raises ``OSError`` if the kernel
+    reports a short write — re-issuing would tear the JSONL line, so the
+    caller must surface the failure.
     """
     payload = serialise_runlog_line(entry)
-    return os.write(fd, payload)
+    n = os.write(fd, payload)
+    if n != len(payload):
+        raise OSError(
+            f"runlog short write: wrote {n} of {len(payload)} bytes; "
+            "torn JSONL line — disk full or signal-interrupted"
+        )
+    return n
 
 
 @contextlib.contextmanager

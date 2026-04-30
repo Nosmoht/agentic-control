@@ -183,8 +183,13 @@ def insert_budget_ledger_entry(engine: Engine, entry: BudgetLedgerEntry) -> Budg
                     "hash_anchor": entry.run_attempt_hash_anchor,
                     "project_ref": str(entry.project_ref) if entry.project_ref else None,
                     "model": entry.model,
-                    "pre_call": entry.pre_call_projection_usd,
-                    "actual": entry.actual_usd,
+                    # Decimal → str preserves exact decimal semantics across
+                    # SQLite NUMERIC. Float-bound would round-trip through
+                    # IEEE 754 and accumulate error in the budget ledger.
+                    "pre_call": str(entry.pre_call_projection_usd),
+                    "actual": (
+                        str(entry.actual_usd) if entry.actual_usd is not None else None
+                    ),
                     "cache_hit": 1 if entry.cache_hit else 0,
                 },
             )
@@ -329,9 +334,9 @@ def insert_dispatch_decision(
                     "model": decision.model,
                     "mode": decision.mode,
                     "reason": decision.reason,
-                    "evidence_refs": json.dumps(decision.evidence_refs)
-                    if decision.evidence_refs
-                    else None,
+                    # Always emit a JSON array (possibly ``[]``) so reads
+                    # round-trip to ``list[EvidenceRef]`` consistently.
+                    "evidence_refs": json.dumps(decision.evidence_refs),
                     "decided_at": _to_iso(decision.decided_at),
                 },
             )
@@ -344,6 +349,15 @@ def insert_dispatch_decision(
 
 
 def get_run_attempt(engine: Engine, attempt_id: str) -> dict[str, Any] | None:
+    """Fetch a run_attempt row as a raw dict.
+
+    NOTE: this returns the raw column values; ``tool_allowlist`` is the
+    JSON-encoded source string, not a parsed list, and ``started_at``/
+    ``ended_at`` are ISO-8601 strings, not aware datetimes. PR2 (`runs
+    inspect`) introduces a typed ``RunAttempt`` re-hydration layer; for
+    F0006a this asymmetry is intentional — repository inserts go through
+    Pydantic, reads return raw rows for the inspect-CLI to format.
+    """
     with engine.connect() as conn:
         row = conn.execute(
             text("SELECT * FROM run_attempt WHERE id = :id"), {"id": attempt_id}
@@ -352,6 +366,10 @@ def get_run_attempt(engine: Engine, attempt_id: str) -> dict[str, Any] | None:
 
 
 def list_tool_calls_for_attempt(engine: Engine, attempt_id: str) -> list[dict[str, Any]]:
+    """List tool_call_record rows for a run_attempt, ordered by ordinal.
+
+    Returns raw dicts (see ``get_run_attempt`` for the same asymmetry note).
+    """
     with engine.connect() as conn:
         rows = conn.execute(
             text(

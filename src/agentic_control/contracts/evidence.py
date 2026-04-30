@@ -17,12 +17,24 @@ import re
 import uuid
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Discriminator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Discriminator
 
 from agentic_control.contracts.ids import UUIDv7
 from agentic_control.contracts.lifecycle import EvidenceSubjectKind
 
-SUBJECT_REF_PATTERN = re.compile(r"^(work_item|run|artifact|decision):([0-9a-fA-F-]{36})$")
+SUBJECT_REF_PATTERN = re.compile(r"^(work_item|run|artifact|decision):([0-9a-f-]{36})$")
+EVIDENCE_REF_PATTERN = re.compile(r"^evidence:[0-9a-f-]{36}$")
+
+
+def _validate_evidence_ref(value: str) -> str:
+    if not EVIDENCE_REF_PATTERN.match(value):
+        raise ValueError(
+            f"evidence ref must match 'evidence:<lowercase-uuid>', got {value!r}"
+        )
+    return value
+
+
+EvidenceRef = Annotated[str, AfterValidator(_validate_evidence_ref)]
 
 
 class _SubjectRefBase(BaseModel):
@@ -78,9 +90,11 @@ def parse_subject_ref(rendered: str) -> _SubjectRefBase:
 
 
 __all__ = [
+    "EVIDENCE_REF_PATTERN",
     "SUBJECT_REF_PATTERN",
     "ArtifactSubjectRef",
     "DecisionSubjectRef",
+    "EvidenceRef",
     "EvidenceSubjectRef",
     "RunSubjectRef",
     "WorkItemSubjectRef",

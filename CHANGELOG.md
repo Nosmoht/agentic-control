@@ -71,6 +71,47 @@ Minor = additiv, Patch = Klarstellungen/Fixes).
 
 ### Added
 
+- **F0006b implementation** (PR2 of F0006: `agentctl runs inspect <id>`)
+  — neuer Typer-Subapp `runs` mit `inspect`-Befehl, Pydantic-typed
+  Read-Layer für die acht Runtime-Records-Tabellen, Stub-Alert-Hook
+  für SandboxViolations. Schreibseitig aus F0006a übernommen, jetzt
+  symmetrisch lesbar:
+  - 9 typed Read-Funktionen in
+    `src/agentic_control/persistence/runtime_repository.py`
+    (`get_run_attempt_typed`, `list_run_attempts_for_run`,
+    `list_tool_calls_for_attempt_typed`,
+    `list_audit_events_for_attempt`,
+    `list_policy_decisions_for_attempt(policy=…)`,
+    `list_approval_requests_for_attempt`,
+    `list_budget_ledger_entries_for_attempt`,
+    `list_sandbox_violations_for_attempt`,
+    `get_dispatch_decision_for_attempt`). USD-Felder Round-Trip via
+    `Decimal(str(row[col]))` (SQLite NUMERIC-Affinity-Recovery);
+    discriminated `PolicyDecisionRecord` re-hydriert
+    `tool_risk_match`-Zeilen in den strukturierten
+    `PolicyDecisionToolRiskMatch`. Raw-Dict-Helpers bleiben als
+    Geschwister bestehen.
+  - `agentctl runs inspect <id|prefix>` mit `--output-json` und
+    `--policy <tag>`-Filter. Human-Format zeigt für jede RunAttempt
+    Dispatch-Decision, Tool-Calls (sortiert nach Ordinal), Audit-
+    Events, Policy-Decisions (mit `tool_risk_match`-Payload-
+    Rendering: `matched_pattern`/`risk`/`approval`/`default_hit`),
+    Approvals, Budget (mit Aggregat-Total), Sandbox-Violations.
+  - `prefix.py` `Table` Literal um `"run"` erweitert; CLI nutzt
+    `resolve_id(engine, "run", target)` für 4+-Char-Prefix-
+    Auflösung analog `work show`.
+  - `src/agentic_control/alerts.py` Stub-Logger
+    (`agentic_control.alerts` WARNING) für SandboxViolations
+    (F0006 AC 13). Echtes Alert-Modul kommt in einem späteren
+    Feature; mechanischer Replace-Punkt.
+  - 13 Integration-Tests in `tests/integration/test_runs_inspect.py`
+    decken AC 4, 11, 12 (Filter + tool_risk_match-Payload), 13
+    (caplog-Assertion auf Alert-Hook), Prefix-Resolution-Fehler,
+    JSON-Output, leerer Run und Audit-Events ab. Suite jetzt 129
+    Tests.
+
+### Added
+
 - **F0006a implementation** (Schema + Contracts + Repository + Runlog
   Writer) — Alembic-Revision `0002_runtime_records` fügt acht
   Runtime-Record-Tabellen (`run_attempt`, `audit_event`,

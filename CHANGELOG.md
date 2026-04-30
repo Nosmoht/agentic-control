@@ -27,6 +27,23 @@ Minor = additiv, Patch = Klarstellungen/Fixes).
 
 ### Added
 
+- **F0006a implementation** (Schema + Contracts + Repository + Runlog
+  Writer) — Alembic-Revision `0002_runtime_records` fügt acht
+  Runtime-Record-Tabellen (`run_attempt`, `audit_event`,
+  `approval_request`, `budget_ledger_entry`, `tool_call_record`,
+  `policy_decision`, `sandbox_violation`, `dispatch_decision`) additiv
+  auf das v0+v1a-Schema. Pydantic-Contracts für alle acht Record-Typen
+  in `src/agentic_control/contracts/runtime_records.py`,
+  `PolicyDecisionRecord` als discriminated union mit
+  strukturiertem `ToolRiskMatchOutput` (ADR-0015 Pflichtfelder).
+  `AuditSubjectRef` als zwei-Pattern-Validator (Domain-Ref ODER
+  config/-Pfad). JSONL-Runlog-Schema in
+  `src/agentic_control/contracts/runlog.py` als 8-armige
+  Event-Discriminated-Union mit Hard-Limit 4096 B per Zeile (POSIX
+  `PIPE_BUF`); `serialise_runlog_line` enforced den Cap, Writer
+  `persistence/runlog_writer.py` issued `os.write(fd, line)` in einer
+  Syscall auf `O_APPEND`-fd. AC 1, 2, 3, 8, 11, 12 abgedeckt durch 28
+  neue Integration-Tests; AC 4-7, 9-10, 13 stehen für PRs F0006b-d.
 - **F0008 implementation** — Alembic-Revision `0001b_v1_domain_schema`
   fügt die Tabellen `run`, `artifact`, `evidence` additiv auf das
   v0-Schema. Pydantic-Contracts für `Run`, `Artifact`, `Evidence` sowie

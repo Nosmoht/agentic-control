@@ -2,7 +2,7 @@
 id: F0006
 title: Runtime Records SQLite Schema and Reconcile CLI
 stage: v1a
-status: proposed
+status: in_progress
 spec_refs: [§5.7, §6.2, §8.4, §10.4]
 adr_refs: [ADR-0001, ADR-0003, ADR-0011, ADR-0016]
 depends_on: [F0001, F0008]

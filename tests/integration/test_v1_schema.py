@@ -281,15 +281,17 @@ def test_ac8_idempotent_full_upgrade(db_url: str, migrated_engine: Engine) -> No
     assert result.returncode == 0, result.stderr
 
 
-# ---------- AC9: F0001 + F0008 produce 4 + 3 = 7 tables (F0006 lands later) ----------
+# ---------- AC9: F0001 + F0008 produce v0+v1a tables; F0006 may add runtime tables ----------
 
 
 def test_ac9_table_count_after_v0_plus_v1a(migrated_engine: Engine) -> None:
+    """v0 + v1a domain tables must be present; F0006 runtime tables may also exist."""
     with sqlite3.connect(_sqlite_path(migrated_engine)) as conn:
         rows = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name != 'alembic_version'"
         ).fetchall()
-    assert {r[0] for r in rows} == V0_TABLES | V1A_TABLES
+    actual = {r[0] for r in rows}
+    assert (V0_TABLES | V1A_TABLES).issubset(actual)
 
 
 # ---------- AC10: subject-ref Pydantic round-trip ----------
